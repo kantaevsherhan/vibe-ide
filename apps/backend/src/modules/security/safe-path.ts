@@ -27,6 +27,8 @@ export function safePath(workspaceRoot: string, relativePath = '') {
   }
 
   const root = path.resolve(workspaceRoot);
+  assertWorkspaceRootIsNotSystemRoot(root);
+
   const resolved = path.resolve(root, normalizedInput);
   const relative = path.relative(root, resolved);
 
@@ -34,13 +36,21 @@ export function safePath(workspaceRoot: string, relativePath = '') {
     throw new SafePathError('Path escapes the workspace.');
   }
 
-  for (const dangerRoot of dangerRoots) {
-    if (resolved.toLowerCase() === dangerRoot || resolved.toLowerCase().startsWith(`${dangerRoot}${path.sep}`)) {
-      throw new SafePathError('System paths are not allowed.');
-    }
+  return resolved;
+}
+
+function assertWorkspaceRootIsNotSystemRoot(root: string) {
+  const normalizedRoot = root.toLowerCase();
+
+  if (path.parse(root).root.toLowerCase() === normalizedRoot) {
+    throw new SafePathError('Workspace cannot be the filesystem root.');
   }
 
-  return resolved;
+  for (const dangerRoot of dangerRoots) {
+    if (normalizedRoot === dangerRoot) {
+      throw new SafePathError('Workspace cannot be a system directory.');
+    }
+  }
 }
 
 export async function assertReadableTextFile(filePath: string, maxFileSizeBytes: number) {
