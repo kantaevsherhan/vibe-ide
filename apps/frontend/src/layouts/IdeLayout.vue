@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { Download, Files, GitBranch, Maximize, Menu, Minimize, TerminalSquare, X } from '@lucide/vue';
+import { Bot, Download, Files, GitBranch, Maximize, Menu, Minimize, TerminalSquare, X } from '@lucide/vue';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ActivityBar from '../components/activity-bar/ActivityBar.vue';
+import AgentsPanel from '../components/agents/AgentsPanel.vue';
 import CodeEditor from '../components/editor/CodeEditor.vue';
 import EditorTabs from '../components/editor/EditorTabs.vue';
+import WorkspaceHealth from '../components/health/WorkspaceHealth.vue';
 import ProjectRuntimeDashboard from '../components/runtime/ProjectRuntimeDashboard.vue';
 import FileExplorer from '../components/sidebar/FileExplorer.vue';
 import GitPanel from '../components/sidebar/GitPanel.vue';
@@ -13,6 +15,8 @@ import TerminalView from '../components/terminal/TerminalView.vue';
 import { useResizable } from '../composables/useResizable';
 import { useFilesStore } from '../stores/files.store';
 import { useGitStore } from '../stores/git.store';
+import { useAgentsStore } from '../stores/agents.store';
+import { useHealthStore } from '../stores/health.store';
 import { useTerminalStore } from '../stores/terminal.store';
 import { useEditorStore } from '../stores/editor.store';
 
@@ -21,13 +25,17 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
 };
 
-const activeView = ref<'files' | 'git' | 'terminal'>('files');
+type IdeView = 'files' | 'git' | 'terminal' | 'agents';
+
+const activeView = ref<IdeView>('files');
 const drawerOpen = ref(false);
 const isFullscreen = ref(false);
 const isMobile = ref(false);
 const deferredInstallPrompt = ref<BeforeInstallPromptEvent | null>(null);
 const files = useFilesStore();
 const git = useGitStore();
+const agents = useAgentsStore();
+const health = useHealthStore();
 const editor = useEditorStore();
 const terminals = useTerminalStore();
 const route = useRoute();
@@ -55,16 +63,18 @@ const terminalResize = useResizable({
 const activeTitle = computed(() => {
   if (activeView.value === 'files') return 'Files';
   if (activeView.value === 'git') return 'Git';
-  return 'Terminal';
+  if (activeView.value === 'terminal') return 'Terminal';
+  return 'Agents';
 });
 
 const navItems = [
   { id: 'files', label: 'Files', icon: Files },
   { id: 'git', label: 'Git', icon: GitBranch },
-  { id: 'terminal', label: 'Terminal', icon: TerminalSquare }
+  { id: 'terminal', label: 'Terminal', icon: TerminalSquare },
+  { id: 'agents', label: 'Agents', icon: Bot }
 ] as const;
 
-function selectMobileView(view: 'files' | 'git' | 'terminal') {
+function selectMobileView(view: IdeView) {
   activeView.value = view;
   drawerOpen.value = view !== 'terminal';
 }
@@ -105,9 +115,13 @@ function syncMobileState() {
 onMounted(async () => {
   files.setProject(projectName.value);
   git.setProject(projectName.value);
+  agents.setProject(projectName.value);
+  health.setProject(projectName.value);
   editor.setProject(projectName.value);
   terminals.setProject(projectName.value);
   await files.refresh();
+  void agents.refresh();
+  void health.refresh();
   syncFullscreenState();
   mobileMediaQuery = window.matchMedia('(max-width: 899px)');
   syncMobileState();
@@ -163,7 +177,8 @@ onBeforeUnmount(() => {
     <aside v-if="!isMobile" class="desktop-sidebar min-w-0 border-r border-ide-border bg-ide-sidebar">
       <FileExplorer v-if="activeView === 'files'" />
       <GitPanel v-else-if="activeView === 'git'" />
-      <TerminalPanel v-else />
+      <TerminalPanel v-else-if="activeView === 'terminal'" />
+      <AgentsPanel v-else />
     </aside>
 
     <button
@@ -195,6 +210,7 @@ onBeforeUnmount(() => {
         <span class="text-ide-muted">/</span>
         <span class="font-mono text-ide-accent">{{ projectName }}</span>
         <ProjectRuntimeDashboard />
+        <WorkspaceHealth />
       </div>
       <EditorTabs />
       <CodeEditor />
@@ -218,7 +234,8 @@ onBeforeUnmount(() => {
       </header>
       <FileExplorer v-if="activeView === 'files'" />
       <GitPanel v-else-if="activeView === 'git'" />
-      <TerminalPanel v-else />
+      <TerminalPanel v-else-if="activeView === 'terminal'" />
+      <AgentsPanel v-else />
     </aside>
 
     <section v-if="isMobile && activeView === 'terminal'" class="mobile-terminal-overlay">

@@ -1,16 +1,17 @@
 <script setup lang="ts">
-import { Files, GitBranch, LogOut, TerminalSquare } from '@lucide/vue';
+import { Bot, Files, GitBranch, LogOut, TerminalSquare } from '@lucide/vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../../stores/auth.store';
 
-const model = defineModel<'files' | 'git' | 'terminal'>({ required: true });
+const model = defineModel<'files' | 'git' | 'terminal' | 'agents'>({ required: true });
 const auth = useAuthStore();
 const router = useRouter();
 
 const items = [
   { id: 'files', label: 'Files', icon: Files },
   { id: 'git', label: 'Git', icon: GitBranch },
-  { id: 'terminal', label: 'Terminal', icon: TerminalSquare }
+  { id: 'terminal', label: 'Terminal', icon: TerminalSquare },
+  { id: 'agents', label: 'Agents', icon: Bot }
 ] as const;
 
 async function logout() {

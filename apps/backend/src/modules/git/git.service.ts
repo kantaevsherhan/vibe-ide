@@ -88,6 +88,29 @@ export class GitService {
     return stdout;
   }
 
+  async health(projectName: string) {
+    ensureGitAllowed(this.config);
+    const projectPath = await this.projects.ensureProjectExists(projectName);
+    if (!(await this.hasProjectGit(projectPath))) {
+      return {
+        changedFiles: 0,
+        branch: null,
+        clean: true
+      };
+    }
+
+    const [{ stdout: status }, { stdout: branch }] = await Promise.all([
+      this.git(projectPath, ['status', '--short']),
+      this.git(projectPath, ['branch', '--show-current'])
+    ]);
+    const changedFiles = status.split('\n').filter(Boolean).length;
+    return {
+      changedFiles,
+      branch: branch || null,
+      clean: changedFiles === 0
+    };
+  }
+
   private async git(cwd: string, args: string[]) {
     try {
       const result = await execa('git', args, {

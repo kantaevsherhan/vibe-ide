@@ -11,10 +11,19 @@ import { ConfigService } from './config/config.service.js';
 import { AuthService } from './modules/auth/auth.service.js';
 import { createRequireAuth } from './modules/auth/auth.middleware.js';
 import { registerAuthRoutes } from './modules/auth/auth.routes.js';
+import { AgentsConfigService } from './modules/agents/agents.config.js';
+import { AgentsManager } from './modules/agents/agents.manager.js';
+import { AgentsService } from './modules/agents/agents.service.js';
+import { registerAgentsRoutes } from './modules/agents/agents.routes.js';
+import { NotificationsService } from './modules/agents/notifications.service.js';
+import { TaskQueueService } from './modules/agents/task-queue.service.js';
+import { TelegramService } from './modules/agents/telegram.service.js';
 import { FilesService } from './modules/files/files.service.js';
 import { registerFilesRoutes } from './modules/files/files.routes.js';
 import { GitService } from './modules/git/git.service.js';
 import { registerGitRoutes } from './modules/git/git.routes.js';
+import { HealthService } from './modules/health/health.service.js';
+import { registerHealthRoutes } from './modules/health/health.routes.js';
 import { ProjectsService } from './modules/projects/projects.service.js';
 import { registerProjectsRoutes } from './modules/projects/projects.routes.js';
 import { TerminalService } from './modules/terminal/terminal.service.js';
@@ -27,6 +36,8 @@ const dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(dirname, '../../..');
 const configService = new ConfigService(projectRoot);
 const config = await configService.load();
+const agentsConfigService = new AgentsConfigService(projectRoot);
+await agentsConfigService.load();
 const workspace = new WorkspaceService(config);
 
 await workspace.ensureReady();
@@ -66,6 +77,12 @@ const ignore = new IgnoreService(projects, config);
 const files = new FilesService(projects, ignore, config);
 const git = new GitService(projects, config);
 const terminals = new TerminalService(projects, config);
+const taskQueue = new TaskQueueService();
+const telegram = new TelegramService(agentsConfigService.value);
+const notifications = new NotificationsService(telegram);
+const agentsManager = new AgentsManager(taskQueue, notifications);
+const agents = new AgentsService(projects, agentsConfigService, taskQueue, agentsManager);
+const health = new HealthService(git, terminals, agents);
 projects.setTerminalCountProvider((projectName) => terminals.count(projectName));
 projects.setProjectDeleteProvider((projectName) => terminals.closeProject(projectName));
 
@@ -75,6 +92,7 @@ app.addHook('preHandler', async (request, reply) => {
   const url = request.raw.url ?? '';
   if (
     url.startsWith('/api/projects') ||
+    url.startsWith('/api/agents') ||
     url.startsWith('/api/files/') ||
     url.startsWith('/api/git/') ||
     url.startsWith('/api/workspace/') ||
@@ -88,6 +106,8 @@ await registerProjectsRoutes(app, projects);
 await registerFilesRoutes(app, files);
 await registerGitRoutes(app, git);
 await registerTerminalRoutes(app, terminals, auth);
+await registerAgentsRoutes(app, agents, agentsManager, auth);
+await registerHealthRoutes(app, health);
 
 const frontendDist = process.env.FRONTEND_DIST ?? path.resolve(dirname, '../../frontend/dist');
 

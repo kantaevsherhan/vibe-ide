@@ -6,7 +6,7 @@ import { useRuntimeStore } from '../../stores/runtime.store';
 const runtime = useRuntimeStore();
 const tooltip = computed(
   () =>
-    `Active terminals: ${runtime.state.activeTerminalsCount}\nAI agents: Coming soon\nTasks: Coming soon`
+    `Active terminals: ${runtime.state.activeTerminalsCount}\nAI agents: ${runtime.state.runningAgentsCount} running\nTasks: ${runtime.state.activeTasksCount} active`
 );
 </script>
 
@@ -24,6 +24,5 @@ const tooltip = computed(
       <ClipboardList :size="13" />
       {{ runtime.state.activeTasksCount }}
     </span>
-    <span class="runtime-soon">AI coming soon</span>
   </div>
 </template>

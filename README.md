@@ -321,4 +321,103 @@ The IDE header shows a compact runtime dashboard:
 🖥 terminals   🤖 agents   📋 tasks
 ```
 
-Terminals use the real active terminal count for the current project. AI agents and tasks are placeholders for now and show `0` with `AI coming soon`.
+Terminals, running AI agents, and active queued/running tasks use live project state.
+
+## AI Agents
+
+VibeIDE can run CLI-based AI agents inside the current project through `node-pty`. Agents are configured in:
+
+```txt
+config/agents.config.json
+```
+
+Example:
+
+```json
+{
+  "agents": [
+    { "id": "claude", "name": "Claude Code", "command": "claude", "args": [], "enabled": true },
+    { "id": "codex", "name": "Codex", "command": "codex", "args": [], "enabled": true },
+    { "id": "gemini", "name": "Gemini", "command": "gemini", "args": [], "enabled": true }
+  ],
+  "notifications": {
+    "telegram": {
+      "enabled": false,
+      "botToken": "",
+      "chatId": ""
+    }
+  }
+}
+```
+
+If an agent command is not installed on the server, the UI shows `Not installed` and VibeIDE keeps running.
+
+Agents always run with `cwd` set to:
+
+```txt
+workspace/<project>
+```
+
+The frontend cannot pass arbitrary commands or working directories. It can only send prompts to agents declared in `agents.config.json`.
+
+## Task Queue
+
+Agent state is stored inside each project:
+
+```txt
+workspace/<project>/.vibeide/
+├── context.md
+├── agents/
+│   ├── tasks.json
+│   ├── sessions.json
+│   └── logs/
+│       └── <task-id>.log
+└── state.json
+```
+
+When a task is created, VibeIDE reads `.vibeide/context.md`, adds it to the prompt, and sends the final prompt to the selected CLI agent. Queued tasks and task history are persisted in `tasks.json`; logs are appended to `logs/<task-id>.log`.
+
+If the backend restarts, active agent processes are not restored, but persisted tasks and history remain available. Tasks that were `running` or `waiting` are marked with an error saying the backend restarted, and can be retried from the Agents panel.
+
+Agent API:
+
+```txt
+GET    /api/agents
+GET    /api/agents/status?projectName=
+GET    /api/agents/tasks?projectName=
+POST   /api/agents/tasks
+POST   /api/agents/tasks/:taskId/cancel
+POST   /api/agents/tasks/:taskId/retry
+POST   /api/agents/tasks/:taskId/move
+GET    /api/agents/tasks/:taskId/log
+```
+
+Live output is streamed through:
+
+```txt
+/ws/agents?projectName=
+```
+
+## Telegram Notifications
+
+Telegram notifications are optional and disabled by default in `config/agents.config.json`.
+
+When enabled, VibeIDE sends notifications for agent task completion, errors, waiting state, and stopped tasks. Notification failures do not break agent execution.
+
+## Workspace Health
+
+The IDE header includes compact workspace health:
+
+```txt
+Git: 4 changed
+Terminals: 2 active
+Agents: 1 running
+```
+
+Backend endpoint:
+
+```txt
+GET /api/workspace/health?projectName=my-project
+```
+
+Workspace Health intentionally reports only Git, terminal, and AI agent state. It does not include CPU/RAM, Docker, frontend status, API status, databases, Redis, or test reports.

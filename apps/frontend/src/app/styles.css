@@ -113,6 +113,20 @@ input:focus-visible {
   color: var(--text-muted);
 }
 
+.workspace-health {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-left: 1px solid var(--border);
+  padding-left: 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.workspace-health:hover {
+  color: var(--text-main);
+}
+
 .runtime-item {
   display: inline-flex;
   align-items: center;
@@ -256,7 +270,7 @@ input:focus-visible {
     position: relative;
     z-index: 60;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     min-height: calc(62px + env(safe-area-inset-bottom));
     padding: 4px max(8px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(8px, env(safe-area-inset-left));
     border-top: 1px solid var(--border);
