@@ -19,11 +19,62 @@ need git
 need node
 need npm
 
+install_build_tools() {
+  if command -v make >/dev/null 2>&1 && command -v g++ >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
+    return
+  fi
+
+  echo "Native build tools are required for node-pty."
+
+  if [ "$(uname -s)" != "Linux" ]; then
+    echo "Please install make, a C++ compiler, and Python 3, then run this installer again."
+    exit 1
+  fi
+
+  local sudo_cmd=()
+  if [ "$(id -u)" -ne 0 ]; then
+    if command -v sudo >/dev/null 2>&1; then
+      sudo_cmd=(sudo)
+    else
+      echo "sudo was not found. Install these packages manually, then run this installer again:"
+      echo "  Debian/Ubuntu: apt-get update && apt-get install -y build-essential python3 make g++"
+      echo "  Fedora/RHEL:   dnf install -y make gcc-c++ python3"
+      echo "  Alpine:        apk add --no-cache make g++ python3"
+      echo "  Arch:          pacman -S --needed base-devel python"
+      exit 1
+    fi
+  fi
+
+  if command -v apt-get >/dev/null 2>&1; then
+    echo "Installing build tools with apt-get"
+    "${sudo_cmd[@]}" apt-get update
+    "${sudo_cmd[@]}" apt-get install -y build-essential python3 make g++
+  elif command -v dnf >/dev/null 2>&1; then
+    echo "Installing build tools with dnf"
+    "${sudo_cmd[@]}" dnf install -y make gcc-c++ python3
+  elif command -v yum >/dev/null 2>&1; then
+    echo "Installing build tools with yum"
+    "${sudo_cmd[@]}" yum install -y make gcc-c++ python3
+  elif command -v apk >/dev/null 2>&1; then
+    echo "Installing build tools with apk"
+    "${sudo_cmd[@]}" apk add --no-cache make g++ python3
+  elif command -v pacman >/dev/null 2>&1; then
+    echo "Installing build tools with pacman"
+    "${sudo_cmd[@]}" pacman -S --needed --noconfirm base-devel python
+  else
+    echo "Could not detect a supported package manager."
+    echo "Install make, g++, and python3 manually, then run this installer again."
+    exit 1
+  fi
+}
+
 NODE_MAJOR="$(node -p "Number(process.versions.node.split('.')[0])")"
 if [ "$NODE_MAJOR" -lt 20 ]; then
   echo "Node.js 20+ is required. Current version: $(node -v)"
   exit 1
 fi
+
+install_build_tools
 
 if [ -d "$INSTALL_DIR/.git" ]; then
   echo "Updating VibeIDE in $INSTALL_DIR"
