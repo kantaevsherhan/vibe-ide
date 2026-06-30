@@ -1,8 +1,8 @@
 export type TerminalMessage =
-  | { type: 'create'; terminalId: string }
-  | { type: 'input'; terminalId: string; data: string }
-  | { type: 'resize'; terminalId: string; cols: number; rows: number }
-  | { type: 'close'; terminalId: string };
+  | { type: 'create'; projectName: string; terminalId: string }
+  | { type: 'input'; projectName: string; terminalId: string; data: string }
+  | { type: 'resize'; projectName: string; terminalId: string; cols: number; rows: number }
+  | { type: 'close'; projectName: string; terminalId: string };
 
 export type TerminalOutputMessage =
   | { type: 'snapshot'; sessions: TerminalSnapshot[] }
@@ -13,6 +13,7 @@ export type TerminalOutputMessage =
 
 export type TerminalSnapshot = {
   id: string;
+  projectName: string;
   name: string;
   output: string;
   createdAt: number;

@@ -4,6 +4,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import App from './App.vue';
 import IdeLayout from './layouts/IdeLayout.vue';
 import LoginPage from './pages/LoginPage.vue';
+import ProjectsPage from './pages/ProjectsPage.vue';
 import { useAuthStore } from './stores/auth.store';
 import './app/styles.css';
 
@@ -11,8 +12,11 @@ const pinia = createPinia();
 const router = createRouter({
   history: createWebHistory(),
   routes: [
+    { path: '/', redirect: '/projects' },
     { path: '/login', component: LoginPage },
-    { path: '/:pathMatch(.*)*', component: IdeLayout }
+    { path: '/projects', component: ProjectsPage },
+    { path: '/ide/:projectName', component: IdeLayout },
+    { path: '/:pathMatch(.*)*', redirect: '/projects' }
   ]
 });
 
@@ -21,7 +25,7 @@ router.beforeEach(async (to) => {
   if (!auth.checked) await auth.check();
 
   if (!auth.user && to.path !== '/login') return '/login';
-  if (auth.user && to.path === '/login') return '/';
+  if (auth.user && to.path === '/login') return '/projects';
   return true;
 });
 

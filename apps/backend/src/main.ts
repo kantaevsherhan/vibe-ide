@@ -15,6 +15,8 @@ import { FilesService } from './modules/files/files.service.js';
 import { registerFilesRoutes } from './modules/files/files.routes.js';
 import { GitService } from './modules/git/git.service.js';
 import { registerGitRoutes } from './modules/git/git.routes.js';
+import { ProjectsService } from './modules/projects/projects.service.js';
+import { registerProjectsRoutes } from './modules/projects/projects.routes.js';
 import { TerminalService } from './modules/terminal/terminal.service.js';
 import { registerTerminalRoutes } from './modules/terminal/terminal.routes.js';
 import { WorkspaceService } from './modules/workspace/workspace.service.js';
@@ -58,23 +60,28 @@ await app.register(websocket);
 
 const auth = new AuthService(config);
 const requireAuth = createRequireAuth(auth);
-const files = new FilesService(workspace, config);
-const git = new GitService(workspace, config);
-const terminals = new TerminalService(workspace, config);
+const projects = new ProjectsService(workspace);
+const files = new FilesService(projects, config);
+const git = new GitService(projects, config);
+const terminals = new TerminalService(projects, config);
+projects.setTerminalCountProvider((projectName) => terminals.count(projectName));
 
 await registerAuthRoutes(app, auth);
 app.get('/api/health', async () => ({ ok: true }));
 app.addHook('preHandler', async (request, reply) => {
   const url = request.raw.url ?? '';
   if (
+    url.startsWith('/api/projects') ||
     url.startsWith('/api/files/') ||
     url.startsWith('/api/git/') ||
     url.startsWith('/api/workspace/') ||
-    url.startsWith('/api/terminal/')
+    url.startsWith('/api/terminal/') ||
+    url.startsWith('/api/terminals')
   ) {
     await requireAuth(request, reply);
   }
 });
+await registerProjectsRoutes(app, projects);
 await registerFilesRoutes(app, files);
 await registerGitRoutes(app, git);
 await registerTerminalRoutes(app, terminals, auth);

@@ -1,8 +1,8 @@
 import { execa } from 'execa';
 import type { VibeIdeConfig } from '../../config/default-config.js';
+import type { ProjectsService } from '../projects/projects.service.js';
 import { ensureGitAllowed } from '../security/permissions.js';
 import { safePath } from '../security/safe-path.js';
-import type { WorkspaceService } from '../workspace/workspace.service.js';
 
 export type GitFileStatus = {
   path: string;
@@ -12,13 +12,14 @@ export type GitFileStatus = {
 
 export class GitService {
   constructor(
-    private readonly workspace: WorkspaceService,
+    private readonly projects: ProjectsService,
     private readonly config: VibeIdeConfig
   ) {}
 
-  async status(): Promise<GitFileStatus[]> {
+  async status(projectName: string): Promise<GitFileStatus[]> {
     ensureGitAllowed(this.config);
-    const { stdout } = await this.git(['status', '--short']);
+    const projectPath = await this.projects.ensureProjectExists(projectName);
+    const { stdout } = await this.git(projectPath, ['status', '--short']);
     return stdout
       .split('\n')
       .filter(Boolean)
@@ -29,34 +30,37 @@ export class GitService {
       });
   }
 
-  async diff(relativePath?: string) {
+  async diff(projectName: string, relativePath?: string) {
     ensureGitAllowed(this.config);
+    const projectPath = await this.projects.ensureProjectExists(projectName);
     const args = ['diff', '--'];
     if (relativePath) {
-      safePath(this.workspace.root, relativePath);
+      safePath(projectPath, relativePath);
       args.push(relativePath);
     }
 
-    const { stdout } = await this.git(args);
+    const { stdout } = await this.git(projectPath, args);
     return stdout;
   }
 
-  async diffNameOnly() {
+  async diffNameOnly(projectName: string) {
     ensureGitAllowed(this.config);
-    const { stdout } = await this.git(['diff', '--name-only']);
+    const projectPath = await this.projects.ensureProjectExists(projectName);
+    const { stdout } = await this.git(projectPath, ['diff', '--name-only']);
     return stdout.split('\n').filter(Boolean);
   }
 
-  async log() {
+  async log(projectName: string) {
     ensureGitAllowed(this.config);
-    const { stdout } = await this.git(['log', '--oneline', '-20']);
+    const projectPath = await this.projects.ensureProjectExists(projectName);
+    const { stdout } = await this.git(projectPath, ['log', '--oneline', '-20']);
     return stdout;
   }
 
-  private async git(args: string[]) {
+  private async git(cwd: string, args: string[]) {
     try {
       return await execa('git', args, {
-        cwd: this.workspace.root,
+        cwd,
         reject: false
       });
     } catch (error) {

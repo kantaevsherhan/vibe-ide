@@ -220,3 +220,30 @@ Terminal WebSocket:
 
 All file operations are constrained to `workspace` through `safePath`.
 All `/api/files/*`, `/api/git/*`, `/api/workspace/*`, and `/ws/terminal` endpoints require a valid session cookie.
+
+## Projects
+
+VibeIDE treats every folder inside `workspace` as a separate project:
+
+```txt
+workspace/
+├── my-react-app/
+├── backend-api/
+└── landing-page/
+```
+
+After login, VibeIDE opens `/projects`. From there you can create a project with a display name, folder name, and description. Creating a project makes:
+
+```txt
+workspace/<folder-name>/.vibeide/project.json
+```
+
+Open a project from the card grid to enter:
+
+```txt
+/ide/<folder-name>
+```
+
+Inside the IDE, file operations, Git commands, and terminal processes are scoped to that project folder only. Use `← Projects` to leave the IDE and return to the project list.
+
+Project terminals are kept in backend memory while the backend process is running. If you leave a project and open it again, active terminals and their buffered output are restored. After backend restart, active terminals are reset; project files and metadata remain on disk.

@@ -89,6 +89,21 @@ input:focus-visible {
   gap: 6px;
 }
 
+.project-breadcrumb {
+  position: absolute;
+  left: 10px;
+  top: 6px;
+  z-index: 16;
+  display: flex;
+  max-width: min(420px, 45vw);
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: 12px;
+  pointer-events: auto;
+}
+
 .desktop-action-button {
   display: inline-flex;
   height: 26px;
@@ -190,7 +205,8 @@ input:focus-visible {
   .desktop-activity,
   .desktop-sidebar,
   .desktop-terminal,
-  .desktop-floating-actions {
+  .desktop-floating-actions,
+  .project-breadcrumb {
     display: none !important;
   }
 

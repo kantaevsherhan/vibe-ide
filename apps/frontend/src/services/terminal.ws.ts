@@ -4,13 +4,22 @@ export class TerminalSocket {
   private socket?: WebSocket;
   private queue: TerminalMessage[] = [];
   private messageHandler?: (message: TerminalOutputMessage) => void;
+  private projectName?: string;
 
-  connect(onMessage: (message: TerminalOutputMessage) => void) {
+  connect(projectName: string, onMessage: (message: TerminalOutputMessage) => void) {
     this.messageHandler = onMessage;
-    if (this.socket && this.socket.readyState !== WebSocket.CLOSED) return;
+    if (this.socket && this.socket.readyState !== WebSocket.CLOSED && this.projectName === projectName) return;
+
+    if (this.socket && this.socket.readyState !== WebSocket.CLOSED) {
+      this.socket.close();
+    }
 
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    this.socket = new WebSocket(`${protocol}://${window.location.host}/ws/terminal`);
+    this.projectName = projectName;
+    this.queue = [];
+    this.socket = new WebSocket(
+      `${protocol}://${window.location.host}/ws/terminal?projectName=${encodeURIComponent(projectName)}`
+    );
     this.socket.addEventListener('open', () => {
       for (const message of this.queue.splice(0)) this.send(message);
     });

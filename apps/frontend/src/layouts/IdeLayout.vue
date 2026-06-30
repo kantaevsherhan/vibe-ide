@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Download, Files, GitBranch, Maximize, Menu, Minimize, TerminalSquare, X } from '@lucide/vue';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import ActivityBar from '../components/activity-bar/ActivityBar.vue';
 import CodeEditor from '../components/editor/CodeEditor.vue';
 import EditorTabs from '../components/editor/EditorTabs.vue';
@@ -10,7 +11,9 @@ import TerminalPanel from '../components/sidebar/TerminalPanel.vue';
 import TerminalView from '../components/terminal/TerminalView.vue';
 import { useResizable } from '../composables/useResizable';
 import { useFilesStore } from '../stores/files.store';
+import { useGitStore } from '../stores/git.store';
 import { useTerminalStore } from '../stores/terminal.store';
+import { useEditorStore } from '../stores/editor.store';
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -23,8 +26,13 @@ const isFullscreen = ref(false);
 const isMobile = ref(false);
 const deferredInstallPrompt = ref<BeforeInstallPromptEvent | null>(null);
 const files = useFilesStore();
+const git = useGitStore();
+const editor = useEditorStore();
 const terminals = useTerminalStore();
+const route = useRoute();
+const router = useRouter();
 let mobileMediaQuery: MediaQueryList | null = null;
+const projectName = computed(() => String(route.params.projectName ?? ''));
 
 const sidebarResize = useResizable({
   key: 'vibeide.sidebar.size',
@@ -94,8 +102,11 @@ function syncMobileState() {
 }
 
 onMounted(async () => {
+  files.setProject(projectName.value);
+  git.setProject(projectName.value);
+  editor.setProject(projectName.value);
+  terminals.setProject(projectName.value);
   await files.refresh();
-  terminals.connect();
   syncFullscreenState();
   mobileMediaQuery = window.matchMedia('(max-width: 899px)');
   syncMobileState();
@@ -103,6 +114,10 @@ onMounted(async () => {
   document.addEventListener('fullscreenchange', syncFullscreenState);
   window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
 });
+
+async function backToProjects() {
+  await router.push('/projects');
+}
 
 onBeforeUnmount(() => {
   mobileMediaQuery?.removeEventListener('change', syncMobileState);
@@ -128,7 +143,7 @@ onBeforeUnmount(() => {
         <Menu :size="22" />
       </button>
       <div class="min-w-0">
-        <div class="truncate text-sm font-semibold">VibeIDE</div>
+        <div class="truncate text-sm font-semibold">VibeIDE / {{ projectName }}</div>
         <div class="truncate text-[11px] text-ide-muted">{{ activeTitle }}</div>
       </div>
       <button v-if="deferredInstallPrompt" class="install-button" @click="installPwa">Установить VibeIDE</button>
@@ -160,12 +175,24 @@ onBeforeUnmount(() => {
 
     <main class="editor-area min-w-0">
       <div class="desktop-floating-actions">
+        <button class="desktop-action-button px-2" @click="backToProjects">← Projects</button>
         <button v-if="deferredInstallPrompt" class="desktop-action-button gap-2 px-2" @click="installPwa">
           <Download :size="14" />
           Установить VibeIDE
         </button>
-        <button v-if="!isFullscreen" class="desktop-action-button px-2" @click="enterFullscreen">Enter Fullscreen</button>
-        <button v-else class="desktop-action-button px-2" @click="exitFullscreen">Exit Fullscreen</button>
+        <button v-if="!isFullscreen" class="desktop-action-button w-8" title="Enter Fullscreen" @click="enterFullscreen">
+          <Maximize :size="15" />
+          <span class="sr-only">Enter Fullscreen</span>
+        </button>
+        <button v-else class="desktop-action-button w-8" title="Exit Fullscreen" @click="exitFullscreen">
+          <Minimize :size="15" />
+          <span class="sr-only">Exit Fullscreen</span>
+        </button>
+      </div>
+      <div class="project-breadcrumb">
+        <button class="text-ide-muted hover:text-ide-text" @click="backToProjects">← Projects</button>
+        <span class="text-ide-muted">/</span>
+        <span class="font-mono text-ide-accent">{{ projectName }}</span>
       </div>
       <EditorTabs />
       <CodeEditor />

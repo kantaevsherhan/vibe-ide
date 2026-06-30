@@ -11,7 +11,7 @@ const password = ref('');
 
 async function submit() {
   await auth.login(username.value, password.value);
-  await router.push('/');
+  await router.push('/projects');
 }
 </script>
 

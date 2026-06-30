@@ -9,37 +9,54 @@ export const useTerminalStore = defineStore('terminal', () => {
   const sessions = ref<TerminalSession[]>([]);
   const activeId = ref<string | null>(null);
   const outputs = ref<Record<string, string>>({});
+  const projectName = ref<string | null>(null);
   const restored = ref(false);
   const activeSession = computed(() => sessions.value.find((session) => session.id === activeId.value) ?? null);
 
+  function setProject(nextProjectName: string) {
+    if (projectName.value === nextProjectName) return;
+    projectName.value = nextProjectName;
+    sessions.value = [];
+    outputs.value = {};
+    activeId.value = null;
+    restored.value = false;
+    connect();
+  }
+
   function connect() {
-    socket.connect(handleMessage);
+    if (!projectName.value) return;
+    socket.connect(projectName.value, handleMessage);
   }
 
   function create() {
+    if (!projectName.value) return null;
     connect();
     const id = crypto.randomUUID();
     activeId.value = id;
-    socket.send({ type: 'create', terminalId: id });
+    socket.send({ type: 'create', projectName: projectName.value, terminalId: id });
     return id;
   }
 
   function close(id: string) {
-    socket.send({ type: 'close', terminalId: id });
+    if (!projectName.value) return;
+    socket.send({ type: 'close', projectName: projectName.value, terminalId: id });
   }
 
   function input(id: string, data: string) {
-    socket.send({ type: 'input', terminalId: id, data });
+    if (!projectName.value) return;
+    socket.send({ type: 'input', projectName: projectName.value, terminalId: id, data });
   }
 
   function resize(id: string, cols: number, rows: number) {
-    socket.send({ type: 'resize', terminalId: id, cols, rows });
+    if (!projectName.value) return;
+    socket.send({ type: 'resize', projectName: projectName.value, terminalId: id, cols, rows });
   }
 
   function handleMessage(message: TerminalOutputMessage) {
     if (message.type === 'snapshot') {
       sessions.value = message.sessions.map((session) => ({
         id: session.id,
+        projectName: session.projectName,
         name: session.name,
         createdAt: session.createdAt
       }));
@@ -53,6 +70,7 @@ export const useTerminalStore = defineStore('terminal', () => {
       if (!sessions.value.some((session) => session.id === message.session.id)) {
         sessions.value.push({
           id: message.session.id,
+          projectName: message.session.projectName,
           name: message.session.name,
           createdAt: message.session.createdAt
         });
@@ -73,5 +91,5 @@ export const useTerminalStore = defineStore('terminal', () => {
     }
   }
 
-  return { sessions, activeId, activeSession, outputs, restored, connect, create, close, input, resize };
+  return { sessions, activeId, activeSession, outputs, projectName, restored, setProject, connect, create, close, input, resize };
 });
