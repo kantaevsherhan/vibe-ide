@@ -53,7 +53,7 @@ $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
 $config.server.host = if ($config.server.host) { $config.server.host } else { "0.0.0.0" }
 $config.server.port = $Port
 $config.workspace.path = $WorkspaceDir
-$config | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $configPath -Encoding UTF8
+[System.IO.File]::WriteAllText($configPath, (($config | ConvertTo-Json -Depth 10) + [Environment]::NewLine), [System.Text.UTF8Encoding]::new($false))
 
 $pidFile = Join-Path $InstallDir "run\vibeide.pid"
 $logFile = Join-Path $InstallDir "logs\vibeide.out.log"

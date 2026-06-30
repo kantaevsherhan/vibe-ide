@@ -13,7 +13,7 @@ export class ConfigService {
   async load() {
     try {
       const raw = await fs.readFile(this.path, 'utf8');
-      this.config = this.mergeConfig(JSON.parse(raw) as Partial<VibeIdeConfig>);
+      this.config = this.mergeConfig(JSON.parse(raw.replace(/^\uFEFF/, '')) as Partial<VibeIdeConfig>);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
 
