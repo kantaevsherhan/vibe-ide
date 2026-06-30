@@ -2,6 +2,7 @@
 import loader from '@monaco-editor/loader';
 import type * as Monaco from 'monaco-editor';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { resizeEventName } from '../../composables/useResizable';
 import { useEditorStore } from '../../stores/editor.store';
 
 const editorStore = useEditorStore();
@@ -30,6 +31,10 @@ function languageFor(path: string) {
     sh: 'shell'
   };
   return map[extension ?? ''] ?? 'plaintext';
+}
+
+function layoutEditor() {
+  window.requestAnimationFrame(() => monacoEditor?.layout());
 }
 
 async function mountEditor() {
@@ -96,8 +101,14 @@ watch(
   }
 );
 
-onMounted(() => void mountEditor());
-onBeforeUnmount(() => monacoEditor?.dispose());
+onMounted(() => {
+  void mountEditor();
+  window.addEventListener(resizeEventName, layoutEditor);
+});
+onBeforeUnmount(() => {
+  window.removeEventListener(resizeEventName, layoutEditor);
+  monacoEditor?.dispose();
+});
 </script>
 
 <template>

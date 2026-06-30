@@ -59,7 +59,7 @@ input:focus-visible {
 
 .ide-shell {
   display: grid;
-  grid-template-columns: 48px 280px minmax(0, 1fr);
+  grid-template-columns: 48px var(--sidebar-width, 280px) 4px minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   touch-action: manipulation;
@@ -69,7 +69,7 @@ input:focus-visible {
 .editor-area {
   position: relative;
   display: grid;
-  grid-template-rows: 36px minmax(0, 1fr) 220px;
+  grid-template-rows: 36px minmax(0, 1fr) 4px var(--terminal-height, 280px);
 }
 
 .mobile-header,
@@ -130,6 +130,43 @@ input:focus-visible {
   padding: 0 10px;
   color: #d8efff;
   font-size: 12px;
+}
+
+.resize-handle-vertical {
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  z-index: 20;
+}
+
+.resize-handle-horizontal {
+  height: 4px;
+  cursor: row-resize;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  z-index: 20;
+}
+
+.resize-handle-vertical:hover,
+.resize-handle-horizontal:hover,
+.resize-handle-active {
+  background: #007acc;
+}
+
+.resize-handle-vertical::after,
+.resize-handle-horizontal::after {
+  content: '';
+  display: block;
+}
+
+.resize-shield {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  cursor: inherit;
 }
 
 @media (max-width: 899px) {

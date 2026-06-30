@@ -3,6 +3,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { Terminal } from '@xterm/xterm';
 import { Plus } from '@lucide/vue';
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { resizeEventName } from '../../composables/useResizable';
 import { useTerminalStore } from '../../stores/terminal.store';
 
 const terminals = useTerminalStore();
@@ -39,9 +40,12 @@ function ensureTerminal() {
 
 function resize() {
   if (!fitAddon || !terminals.activeId) return;
-  fitAddon.fit();
-  terminals.resize(terminals.activeId, xterm?.cols ?? 100, xterm?.rows ?? 24);
-  xterm?.focus();
+  window.requestAnimationFrame(() => {
+    if (!terminals.activeId) return;
+    fitAddon?.fit();
+    terminals.resize(terminals.activeId, xterm?.cols ?? 100, xterm?.rows ?? 24);
+    xterm?.focus();
+  });
 }
 
 async function renderSession() {
@@ -77,11 +81,13 @@ watch(() => terminals.activeId && terminals.outputs[terminals.activeId], renderS
 
 onMounted(() => {
   ensureTerminal();
+  window.addEventListener(resizeEventName, resize);
   void renderSession();
   xterm?.focus();
 });
 
 onBeforeUnmount(() => {
+  window.removeEventListener(resizeEventName, resize);
   resizeObserver?.disconnect();
   xterm?.dispose();
 });

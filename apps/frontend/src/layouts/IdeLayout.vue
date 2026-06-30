@@ -8,6 +8,7 @@ import FileExplorer from '../components/sidebar/FileExplorer.vue';
 import GitPanel from '../components/sidebar/GitPanel.vue';
 import TerminalPanel from '../components/sidebar/TerminalPanel.vue';
 import TerminalView from '../components/terminal/TerminalView.vue';
+import { useResizable } from '../composables/useResizable';
 import { useFilesStore } from '../stores/files.store';
 import { useTerminalStore } from '../stores/terminal.store';
 
@@ -24,6 +25,23 @@ const deferredInstallPrompt = ref<BeforeInstallPromptEvent | null>(null);
 const files = useFilesStore();
 const terminals = useTerminalStore();
 let mobileMediaQuery: MediaQueryList | null = null;
+
+const sidebarResize = useResizable({
+  key: 'vibeide.sidebar.size',
+  direction: 'horizontal',
+  defaultWidth: 280,
+  minWidth: 200,
+  maxWidth: 600
+});
+
+const terminalResize = useResizable({
+  key: 'vibeide.terminal.size',
+  direction: 'vertical',
+  defaultHeight: 280,
+  minHeight: 160,
+  maxHeight: Math.round(window.innerHeight * 0.7),
+  verticalGrowthDirection: 'up'
+});
 
 const activeTitle = computed(() => {
   if (activeView.value === 'files') return 'Files';
@@ -94,7 +112,17 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="ide-shell h-screen w-screen bg-ide-main text-[13px] text-ide-text">
+  <div
+    class="ide-shell h-screen w-screen bg-ide-main text-[13px] text-ide-text"
+    :style="
+      !isMobile
+        ? {
+            '--sidebar-width': `${sidebarResize.width.value}px`,
+            '--terminal-height': `${terminalResize.height.value}px`
+          }
+        : undefined
+    "
+  >
     <header class="mobile-header">
       <button class="touch-button" title="Open sidebar" @click="drawerOpen = true">
         <Menu :size="22" />
@@ -122,6 +150,14 @@ onBeforeUnmount(() => {
       <TerminalPanel v-else />
     </aside>
 
+    <button
+      v-if="!isMobile"
+      class="resize-handle-vertical"
+      :class="{ 'resize-handle-active': sidebarResize.isResizing.value }"
+      title="Resize sidebar"
+      @mousedown="sidebarResize.startResize"
+    />
+
     <main class="editor-area min-w-0">
       <div class="desktop-floating-actions">
         <button v-if="deferredInstallPrompt" class="desktop-action-button gap-2 px-2" @click="installPwa">
@@ -133,6 +169,13 @@ onBeforeUnmount(() => {
       </div>
       <EditorTabs />
       <CodeEditor />
+      <button
+        v-if="!isMobile"
+        class="resize-handle-horizontal"
+        :class="{ 'resize-handle-active': terminalResize.isResizing.value }"
+        title="Resize terminal"
+        @mousedown="terminalResize.startResize"
+      />
       <TerminalView v-if="!isMobile" class="desktop-terminal" />
     </main>
 
@@ -165,5 +208,7 @@ onBeforeUnmount(() => {
         <span>{{ item.label }}</span>
       </button>
     </nav>
+
+    <div v-if="sidebarResize.isResizing.value || terminalResize.isResizing.value" class="resize-shield" />
   </div>
 </template>
