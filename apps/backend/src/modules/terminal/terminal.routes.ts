@@ -31,12 +31,25 @@ export async function registerTerminalRoutes(app: FastifyInstance, terminals: Te
       }
     };
 
-    terminals.attach(projectName, send);
+    void terminals.attach(projectName, send).catch((error) => {
+      send({
+        type: 'error',
+        terminalId: 'unknown',
+        message: error instanceof Error ? error.message : 'Failed to attach terminal.'
+      });
+      socket.close(1008, 'Terminal attach failed');
+    });
 
     socket.on('message', (raw: Buffer | ArrayBuffer | string) => {
       try {
         const message = JSON.parse(raw.toString()) as TerminalMessage;
-        void terminals.handle(message, send);
+        void terminals.handle(message, send).catch((error) => {
+          send({
+            type: 'error',
+            terminalId: message.terminalId,
+            message: error instanceof Error ? error.message : 'Terminal command failed.'
+          });
+        });
       } catch (error) {
         send({
           type: 'error',

@@ -48,6 +48,16 @@ export class GitService {
     };
   }
 
+  async init(projectName: string): Promise<GitStatusResult> {
+    ensureGitAllowed(this.config);
+    const projectPath = await this.projects.ensureProjectExists(projectName);
+    if (!(await this.hasProjectGit(projectPath))) {
+      await this.git(projectPath, ['init']);
+    }
+
+    return this.status(projectName);
+  }
+
   async diff(projectName: string, relativePath?: string) {
     ensureGitAllowed(this.config);
     const projectPath = await this.projects.ensureProjectExists(projectName);
@@ -80,11 +90,20 @@ export class GitService {
 
   private async git(cwd: string, args: string[]) {
     try {
-      return await execa('git', args, {
+      const result = await execa('git', args, {
         cwd,
-        reject: false
+        reject: false,
+        env: {
+          ...process.env,
+          GIT_CEILING_DIRECTORIES: path.dirname(cwd)
+        }
       });
+      if (result.exitCode !== 0) {
+        throw Object.assign(new Error(result.stderr || 'Git command failed.'), { statusCode: 500 });
+      }
+      return result;
     } catch (error) {
+      if (error instanceof Error && 'statusCode' in error) throw error;
       throw Object.assign(new Error('Git command failed.'), { statusCode: 500, cause: error });
     }
   }
@@ -92,7 +111,7 @@ export class GitService {
   private async hasProjectGit(projectPath: string) {
     const gitPath = path.join(projectPath, '.git');
     const stats = await fs.stat(gitPath).catch(() => null);
-    return Boolean(stats && (stats.isDirectory() || stats.isFile()));
+    return Boolean(stats?.isDirectory());
   }
 
   private async ensureProjectGit(projectPath: string) {

@@ -1,4 +1,5 @@
 import os from 'node:os';
+import { existsSync } from 'node:fs';
 import pty, { type IPty } from 'node-pty';
 import type { VibeIdeConfig } from '../../config/default-config.js';
 import type { TerminalMessage, TerminalOutputMessage, TerminalSnapshot } from '../../types/terminal.js';
@@ -17,7 +18,7 @@ type TerminalSessionState = {
 
 export class TerminalService {
   private readonly sessions = new Map<string, Map<string, TerminalSessionState>>();
-  private readonly clients = new Set<SendMessage>();
+  private readonly clients = new Map<SendMessage, string>();
 
   constructor(
     private readonly projects: ProjectsService,
@@ -28,26 +29,34 @@ export class TerminalService {
     ensureTerminalAllowed(this.config);
     await this.projects.ensureProjectExists(message.projectName);
 
-    if (message.type === 'create') {
-      await this.create(message.projectName, message.terminalId);
-      return;
-    }
+    try {
+      if (message.type === 'create') {
+        await this.create(message.projectName, message.terminalId);
+        return;
+      }
 
-    const session = this.projectSessions(message.projectName).get(message.terminalId);
-    if (!session) {
-      send({ type: 'error', terminalId: message.terminalId, message: 'Terminal was not found.' });
-      return;
-    }
+      const session = this.projectSessions(message.projectName).get(message.terminalId);
+      if (!session) {
+        send({ type: 'error', terminalId: message.terminalId, message: 'Terminal was not found.' });
+        return;
+      }
 
-    if (message.type === 'input') session.pty.write(message.data);
-    if (message.type === 'resize') session.pty.resize(message.cols, message.rows);
-    if (message.type === 'close') this.closeById(message.terminalId);
+      if (message.type === 'input') session.pty.write(message.data);
+      if (message.type === 'resize') session.pty.resize(message.cols, message.rows);
+      if (message.type === 'close') this.close(message.projectName, message.terminalId);
+    } catch (error) {
+      send({
+        type: 'error',
+        terminalId: message.terminalId,
+        message: error instanceof Error ? error.message : 'Terminal command failed.'
+      });
+    }
   }
 
-  attach(projectName: string, send: SendMessage) {
+  async attach(projectName: string, send: SendMessage) {
     ensureTerminalAllowed(this.config);
-    this.projects.assertProjectName(projectName);
-    this.clients.add(send);
+    await this.projects.ensureProjectExists(projectName);
+    this.clients.set(send, projectName);
     send({ type: 'snapshot', sessions: this.list(projectName) });
   }
 
@@ -62,12 +71,13 @@ export class TerminalService {
   }
 
   listApi(projectName: string) {
+    const terminals = this.list(projectName);
     return {
-      terminals: this.list(projectName).map((terminal, index) => ({
+      terminals: terminals.map((terminal, index) => ({
         terminalId: terminal.id,
         title: terminal.name,
         createdAt: new Date(terminal.createdAt).toISOString(),
-        isActive: index === this.list(projectName).length - 1,
+        isActive: index === terminals.length - 1,
         buffer: terminal.output
       }))
     };
@@ -78,24 +88,24 @@ export class TerminalService {
     return this.projectSessions(projectName).size;
   }
 
-  closeById(terminalId: string) {
-    const session = this.findSession(terminalId);
+  close(projectName: string, terminalId: string) {
+    const session = this.projectSessions(projectName).get(terminalId);
     if (!session) return;
 
     session.pty.kill();
-    this.projectSessions(session.projectName).delete(terminalId);
-    this.broadcast({ type: 'closed', terminalId });
+    this.projectSessions(projectName).delete(terminalId);
+    this.broadcast(projectName, { type: 'closed', terminalId });
   }
 
   private async create(projectName: string, terminalId: string) {
     const projectSessions = this.projectSessions(projectName);
     if (projectSessions.has(terminalId)) {
-      this.broadcast({ type: 'snapshot', sessions: this.list(projectName) });
+      this.broadcast(projectName, { type: 'snapshot', sessions: this.list(projectName) });
       return;
     }
 
     const projectPath = await this.projects.ensureProjectExists(projectName);
-    const shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
+    const shell = this.resolveShell();
     const terminal = pty.spawn(shell, [], {
       name: 'xterm-color',
       cols: 100,
@@ -114,15 +124,15 @@ export class TerminalService {
     };
 
     projectSessions.set(terminalId, session);
-    this.broadcast({ type: 'created', session: this.snapshot(session) });
+    this.broadcast(projectName, { type: 'created', session: this.snapshot(session) });
 
     terminal.onData((data) => {
       session.output = this.trimBuffer(session.output + data);
-      this.broadcast({ type: 'output', terminalId, data });
+      this.broadcast(projectName, { type: 'output', terminalId, data });
     });
     terminal.onExit(() => {
       projectSessions.delete(terminalId);
-      this.broadcast({ type: 'closed', terminalId });
+      this.broadcast(projectName, { type: 'closed', terminalId });
     });
   }
 
@@ -136,9 +146,9 @@ export class TerminalService {
     };
   }
 
-  private broadcast(message: TerminalOutputMessage) {
-    for (const send of this.clients) {
-      send(message);
+  private broadcast(projectName: string, message: TerminalOutputMessage) {
+    for (const [send, clientProjectName] of this.clients) {
+      if (clientProjectName === projectName) send(message);
     }
   }
 
@@ -151,17 +161,16 @@ export class TerminalService {
     return sessions;
   }
 
-  private findSession(terminalId: string) {
-    for (const sessions of this.sessions.values()) {
-      const session = sessions.get(terminalId);
-      if (session) return session;
-    }
-    return null;
-  }
-
   private trimBuffer(output: string) {
     const lines = output.split(/\r?\n/);
     if (lines.length <= 5000) return output;
     return lines.slice(-5000).join('\n');
+  }
+
+  private resolveShell() {
+    if (os.platform() === 'win32') return process.env.COMSPEC ?? 'powershell.exe';
+    if (process.env.SHELL) return process.env.SHELL;
+    if (existsSync('/bin/bash')) return '/bin/bash';
+    return '/bin/sh';
   }
 }

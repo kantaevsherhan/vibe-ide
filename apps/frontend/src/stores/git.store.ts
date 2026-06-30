@@ -36,5 +36,21 @@ export const useGitStore = defineStore('git', () => {
     }
   }
 
-  return { files, projectName, isRepository, message, loading, error, setProject, refresh };
+  async function initRepository() {
+    if (!projectName.value) return;
+    loading.value = true;
+    error.value = null;
+    try {
+      const response = await gitApi.init(projectName.value);
+      files.value = response.files;
+      isRepository.value = response.isRepository;
+      message.value = response.message ?? null;
+    } catch (caught) {
+      error.value = caught instanceof Error ? caught.message : 'Failed to initialize Git repository.';
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  return { files, projectName, isRepository, message, loading, error, setProject, refresh, initRepository };
 });

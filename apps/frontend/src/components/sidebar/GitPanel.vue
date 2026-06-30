@@ -38,6 +38,12 @@ const labels = {
       <p v-if="git.loading" class="px-3 py-3 text-ide-muted">Loading changes...</p>
       <p v-else-if="!git.isRepository" class="px-3 py-4 text-ide-muted">
         {{ git.message ?? 'This project is not a Git repository.' }}
+        <button
+          class="mt-3 block rounded bg-ide-accent px-3 py-2 text-xs font-medium text-white hover:bg-[#1188d8]"
+          @click="git.initRepository"
+        >
+          Initialize repository
+        </button>
       </p>
       <p v-else-if="git.files.length === 0" class="px-3 py-4 text-ide-muted">No changed files.</p>
       <button

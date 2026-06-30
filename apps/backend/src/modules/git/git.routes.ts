@@ -5,6 +5,7 @@ export async function registerGitRoutes(app: FastifyInstance, git: GitService) {
   app.get<{ Querystring: { projectName: string } }>('/api/git/status', async (request) =>
     git.status(request.query.projectName)
   );
+  app.post<{ Body: { projectName: string } }>('/api/git/init', async (request) => git.init(request.body.projectName));
   app.get<{ Querystring: { projectName: string; path?: string } }>('/api/git/diff', async (request) => ({
     diff: await git.diff(request.query.projectName, request.query.path)
   }));

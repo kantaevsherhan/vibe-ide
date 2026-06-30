@@ -208,8 +208,9 @@ DELETE /api/files/delete?path=
 Git:
 
 ```txt
-GET /api/git/status
-GET /api/git/diff?path=
+GET  /api/git/status?projectName=
+POST /api/git/init
+GET  /api/git/diff?projectName=&path=
 ```
 
 Terminal WebSocket:
@@ -244,7 +245,7 @@ Open a project from the card grid to enter:
 /ide/<folder-name>
 ```
 
-Inside the IDE, file operations, Git commands, and terminal processes are scoped to that project folder only. Use `← Projects` to leave the IDE and return to the project list.
+Inside the IDE, file operations, Git commands, and terminal processes are scoped to that project folder only. Git status is shown only when `.git` exists directly in the project root; otherwise the Git panel offers `Initialize repository`. Use `← Projects` to leave the IDE and return to the project list.
 
 Project terminals are kept in backend memory while the backend process is running. If you leave a project and open it again, active terminals and their buffered output are restored. After backend restart, active terminals are reset; project files and metadata remain on disk.
 
