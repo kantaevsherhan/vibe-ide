@@ -5,16 +5,22 @@ import type { WorkspaceService } from '../workspace/workspace.service.js';
 import type { CreateProjectInput, Project, ProjectMetadata } from './projects.types.js';
 
 export type TerminalCountProvider = (projectName: string) => number;
+export type ProjectDeleteProvider = (projectName: string) => void | Promise<void>;
 
 const projectNamePattern = /^[A-Za-z0-9_-]+$/;
 
 export class ProjectsService {
   private terminalCountProvider: TerminalCountProvider = () => 0;
+  private projectDeleteProvider: ProjectDeleteProvider = () => {};
 
   constructor(private readonly workspace: WorkspaceService) {}
 
   setTerminalCountProvider(provider: TerminalCountProvider) {
     this.terminalCountProvider = provider;
+  }
+
+  setProjectDeleteProvider(provider: ProjectDeleteProvider) {
+    this.projectDeleteProvider = provider;
   }
 
   assertProjectName(projectName: string) {
@@ -82,7 +88,8 @@ export class ProjectsService {
 
   async delete(projectName: string) {
     const projectPath = await this.ensureProjectExists(projectName);
-    await fs.rm(projectPath, { recursive: true, force: true });
+    await this.projectDeleteProvider(projectName);
+    await fs.rm(projectPath, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
   }
 
   private async readProject(projectName: string): Promise<Project | null> {

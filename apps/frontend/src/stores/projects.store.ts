@@ -22,14 +22,25 @@ export const useProjectsStore = defineStore('projects', () => {
   }
 
   async function createProject(input: CreateProjectInput) {
-    const project = (await projectsApi.create(input)).project;
-    projects.value = [project, ...projects.value];
-    return project;
+    error.value = null;
+    try {
+      const project = (await projectsApi.create(input)).project;
+      projects.value = [project, ...projects.value];
+      return project;
+    } catch (caught) {
+      error.value = caught instanceof Error ? caught.message : 'Failed to create project.';
+      throw caught;
+    }
   }
 
   async function deleteProject(projectName: string) {
-    await projectsApi.delete(projectName);
-    projects.value = projects.value.filter((project) => project.folderName !== projectName);
+    error.value = null;
+    try {
+      await projectsApi.delete(projectName);
+      projects.value = projects.value.filter((project) => project.folderName !== projectName);
+    } catch (caught) {
+      error.value = caught instanceof Error ? caught.message : 'Failed to delete project.';
+    }
   }
 
   async function openProject(projectName: string) {

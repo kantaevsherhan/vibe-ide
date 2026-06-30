@@ -67,6 +67,7 @@ const files = new FilesService(projects, ignore, config);
 const git = new GitService(projects, config);
 const terminals = new TerminalService(projects, config);
 projects.setTerminalCountProvider((projectName) => terminals.count(projectName));
+projects.setProjectDeleteProvider((projectName) => terminals.closeProject(projectName));
 
 await registerAuthRoutes(app, auth);
 app.get('/api/health', async () => ({ ok: true }));

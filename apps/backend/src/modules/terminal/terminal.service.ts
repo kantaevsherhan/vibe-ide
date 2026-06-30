@@ -97,6 +97,17 @@ export class TerminalService {
     this.broadcast(projectName, { type: 'closed', terminalId });
   }
 
+  closeProject(projectName: string) {
+    const sessions = this.projectSessions(projectName);
+    const terminalIds = [...sessions.keys()];
+    for (const terminalId of terminalIds) {
+      const session = sessions.get(terminalId);
+      if (session) session.pty.kill();
+      sessions.delete(terminalId);
+      this.broadcast(projectName, { type: 'closed', terminalId });
+    }
+  }
+
   private async create(projectName: string, terminalId: string) {
     const projectSessions = this.projectSessions(projectName);
     if (projectSessions.has(terminalId)) {
