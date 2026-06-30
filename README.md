@@ -67,7 +67,9 @@ The installer:
 - installs npm dependencies;
 - builds frontend and backend;
 - writes `config/vibeide.config.json`;
-- starts VibeIDE in the background;
+- starts the production backend in the background;
+- serves the built frontend from the backend;
+- checks that `http://127.0.0.1:8080/api/health` and `http://127.0.0.1:8080/` respond;
 - stores logs and PID under the install directory.
 
 Defaults:
@@ -78,6 +80,14 @@ URL: http://127.0.0.1:8080
 Workspace: <install-dir>/workspace
 Login: admin / change-me
 ```
+
+After installer startup, open the URL printed by the installer, usually:
+
+```txt
+http://127.0.0.1:8080
+```
+
+Do not open `apps/frontend/dist/index.html` directly as a file. The built frontend must be served by the backend so API, auth cookies and WebSocket terminal work.
 
 Custom Linux/macOS install:
 

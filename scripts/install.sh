@@ -61,6 +61,20 @@ NODE
 
 PID_FILE="$INSTALL_DIR/run/vibeide.pid"
 LOG_FILE="$INSTALL_DIR/logs/vibeide.log"
+FRONTEND_DIST="$INSTALL_DIR/apps/frontend/dist"
+BACKEND_ENTRY="$INSTALL_DIR/apps/backend/dist/main.js"
+
+if [ ! -f "$FRONTEND_DIST/index.html" ]; then
+  echo "Frontend build was not found at $FRONTEND_DIST/index.html"
+  echo "The build step failed or did not produce frontend assets."
+  exit 1
+fi
+
+if [ ! -f "$BACKEND_ENTRY" ]; then
+  echo "Backend entry was not found at $BACKEND_ENTRY"
+  echo "The build step failed or did not produce backend assets."
+  exit 1
+fi
 
 if [ -f "$PID_FILE" ]; then
   OLD_PID="$(cat "$PID_FILE" || true)"
@@ -72,11 +86,40 @@ if [ -f "$PID_FILE" ]; then
 fi
 
 echo "Starting VibeIDE in background"
-nohup npm start >"$LOG_FILE" 2>&1 &
+PORT="$PORT" \
+HOST="0.0.0.0" \
+WORKSPACE_DIR="$WORKSPACE_DIR" \
+FRONTEND_DIST="$FRONTEND_DIST" \
+NODE_ENV="${NODE_ENV:-development}" \
+nohup node "$BACKEND_ENTRY" >"$LOG_FILE" 2>&1 &
 PID="$!"
 echo "$PID" > "$PID_FILE"
 
-echo "VibeIDE is starting."
+echo "Waiting for VibeIDE health check"
+for attempt in $(seq 1 30); do
+  if command -v curl >/dev/null 2>&1 \
+    && curl -fsS "http://127.0.0.1:$PORT/api/health" >/dev/null 2>&1 \
+    && curl -fsS "http://127.0.0.1:$PORT/" >/dev/null 2>&1; then
+    break
+  fi
+
+  if ! kill -0 "$PID" >/dev/null 2>&1; then
+    echo "VibeIDE failed to start. Log:"
+    tail -n 80 "$LOG_FILE" || true
+    exit 1
+  fi
+
+  if [ "$attempt" -eq 30 ]; then
+    echo "VibeIDE did not become healthy on http://127.0.0.1:$PORT"
+    echo "Log:"
+    tail -n 80 "$LOG_FILE" || true
+    exit 1
+  fi
+
+  sleep 1
+done
+
+echo "VibeIDE is running."
 echo "URL: http://127.0.0.1:$PORT"
 echo "PID: $PID"
 echo "Log: $LOG_FILE"

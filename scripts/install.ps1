@@ -58,6 +58,16 @@ $config | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $configPath -Encod
 $pidFile = Join-Path $InstallDir "run\vibeide.pid"
 $logFile = Join-Path $InstallDir "logs\vibeide.out.log"
 $errorLogFile = Join-Path $InstallDir "logs\vibeide.err.log"
+$frontendDist = Join-Path $InstallDir "apps\frontend\dist"
+$backendEntry = Join-Path $InstallDir "apps\backend\dist\main.js"
+
+if (-not (Test-Path (Join-Path $frontendDist "index.html"))) {
+  throw "Frontend build was not found at $frontendDist\index.html. The build step failed or did not produce frontend assets."
+}
+
+if (-not (Test-Path $backendEntry)) {
+  throw "Backend entry was not found at $backendEntry. The build step failed or did not produce backend assets."
+}
 
 if (Test-Path $pidFile) {
   $oldPid = Get-Content -LiteralPath $pidFile -ErrorAction SilentlyContinue
@@ -69,8 +79,16 @@ if (Test-Path $pidFile) {
 }
 
 Write-Host "Starting VibeIDE in background"
-$process = Start-Process -FilePath "npm.cmd" `
-  -ArgumentList @("start") `
+$env:PORT = [string]$Port
+$env:HOST = "0.0.0.0"
+$env:WORKSPACE_DIR = $WorkspaceDir
+$env:FRONTEND_DIST = $frontendDist
+if (-not $env:NODE_ENV) {
+  $env:NODE_ENV = "development"
+}
+
+$process = Start-Process -FilePath "node" `
+  -ArgumentList @($backendEntry) `
   -WorkingDirectory $InstallDir `
   -RedirectStandardOutput $logFile `
   -RedirectStandardError $errorLogFile `
@@ -79,7 +97,36 @@ $process = Start-Process -FilePath "npm.cmd" `
 
 $process.Id | Set-Content -LiteralPath $pidFile -Encoding ASCII
 
-Write-Host "VibeIDE is starting."
+Write-Host "Waiting for VibeIDE health check"
+$healthy = $false
+for ($attempt = 1; $attempt -le 30; $attempt++) {
+  if (-not (Get-Process -Id $process.Id -ErrorAction SilentlyContinue)) {
+    Write-Host "VibeIDE failed to start."
+    if (Test-Path $logFile) { Get-Content -LiteralPath $logFile -Tail 80 }
+    if (Test-Path $errorLogFile) { Get-Content -LiteralPath $errorLogFile -Tail 80 }
+    throw "Backend process exited before becoming healthy."
+  }
+
+  try {
+    $health = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/api/health" -TimeoutSec 2
+    $frontPage = Invoke-WebRequest -Uri "http://127.0.0.1:$Port/" -UseBasicParsing -TimeoutSec 2
+    if ($health.ok -and $frontPage.StatusCode -eq 200) {
+      $healthy = $true
+      break
+    }
+  } catch {
+    Start-Sleep -Seconds 1
+  }
+}
+
+if (-not $healthy) {
+  Write-Host "VibeIDE did not become healthy on http://127.0.0.1:$Port"
+  if (Test-Path $logFile) { Get-Content -LiteralPath $logFile -Tail 80 }
+  if (Test-Path $errorLogFile) { Get-Content -LiteralPath $errorLogFile -Tail 80 }
+  throw "Health check failed."
+}
+
+Write-Host "VibeIDE is running."
 Write-Host "URL: http://127.0.0.1:$Port"
 Write-Host "PID: $($process.Id)"
 Write-Host "Log: $logFile"
