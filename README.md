@@ -47,6 +47,63 @@ For an absolute host workspace:
 docker run -p 8080:8080 -v /home/projects:/workspace vibe-ide
 ```
 
+## One-command Install
+
+Linux/macOS:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/kantaevsherhan/vibe-ide/main/scripts/install.sh | bash
+```
+
+Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/kantaevsherhan/vibe-ide/main/scripts/install.ps1 | iex
+```
+
+The installer:
+
+- clones or updates `https://github.com/kantaevsherhan/vibe-ide.git`;
+- installs npm dependencies;
+- builds frontend and backend;
+- writes `config/vibeide.config.json`;
+- starts VibeIDE in the background;
+- stores logs and PID under the install directory.
+
+Defaults:
+
+```txt
+Install dir: ~/vibe-ide on Linux/macOS, %USERPROFILE%\vibe-ide on Windows
+URL: http://127.0.0.1:8080
+Workspace: <install-dir>/workspace
+Login: admin / change-me
+```
+
+Custom Linux/macOS install:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/kantaevsherhan/vibe-ide/main/scripts/install.sh \
+  | env VIBEIDE_INSTALL_DIR=/opt/vibe-ide VIBEIDE_PORT=9090 VIBEIDE_WORKSPACE_DIR=/home/projects bash
+```
+
+Custom Windows install:
+
+```powershell
+irm https://raw.githubusercontent.com/kantaevsherhan/vibe-ide/main/scripts/install.ps1 | iex
+# or after downloading:
+.\scripts\install.ps1 -InstallDir C:\vibe-ide -Port 9090 -WorkspaceDir C:\projects
+```
+
+Stop background process:
+
+```bash
+~/vibe-ide/scripts/stop.sh
+```
+
+```powershell
+& "$env:USERPROFILE\vibe-ide\scripts\stop.ps1"
+```
+
 ## Security
 
 VibeIDE is protected by a single username/password from:

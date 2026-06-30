@@ -11,7 +11,7 @@
     "sessionSecret": "change-this-secret"
   },
   "workspace": {
-    "path": "C:\\projects\\vibe-ide\\workspace"
+    "path": "workspace"
   },
   "security": {
     "allowTerminal": true,
