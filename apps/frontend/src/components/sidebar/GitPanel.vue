@@ -36,6 +36,9 @@ const labels = {
 
     <div class="min-h-0 flex-1 overflow-auto thin-scrollbar">
       <p v-if="git.loading" class="px-3 py-3 text-ide-muted">Loading changes...</p>
+      <p v-else-if="!git.isRepository" class="px-3 py-4 text-ide-muted">
+        {{ git.message ?? 'This project is not a Git repository.' }}
+      </p>
       <p v-else-if="git.files.length === 0" class="px-3 py-4 text-ide-muted">No changed files.</p>
       <button
         v-for="file in git.files"

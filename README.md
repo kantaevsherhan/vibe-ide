@@ -247,3 +247,77 @@ Open a project from the card grid to enter:
 Inside the IDE, file operations, Git commands, and terminal processes are scoped to that project folder only. Use `← Projects` to leave the IDE and return to the project list.
 
 Project terminals are kept in backend memory while the backend process is running. If you leave a project and open it again, active terminals and their buffered output are restored. After backend restart, active terminals are reset; project files and metadata remain on disk.
+
+## Lazy Workspace Loading
+
+VibeIDE does not scan the whole project at once. The file explorer loads only the project root first, then asks the backend for one folder level at a time:
+
+```txt
+GET /api/files/children?projectName=my-project&path=src
+```
+
+Closed folders are not read, and files are read only when opened. This keeps large JS, Python, Java, Flutter, and mixed projects responsive.
+
+Folder responses are limited by:
+
+```json
+{
+  "workspace": {
+    "maxFolderChildren": 500
+  }
+}
+```
+
+If a folder has more items than the limit, VibeIDE shows `Folder is too large` and does not render thousands of nodes.
+
+## Auto Ignore
+
+VibeIDE marks heavy or generated folders as ignored by default, including:
+
+```txt
+node_modules, dist, build, target, .next, .nuxt, .venv, vendor, .git
+```
+
+Projects can add custom rules in:
+
+```txt
+workspace/<project>/.vibeignore
+```
+
+Example:
+
+```txt
+node_modules
+dist
+logs
+*.log
+*.zip
+```
+
+Ignored folders are still visible, but VibeIDE does not auto-open or deep-scan them.
+
+## Ignored Folders
+
+Ignored folders appear muted with an `ignored` badge. Clicking one shows:
+
+```txt
+This folder is ignored for performance.
+```
+
+Use `Open Anyway` to load only the first level:
+
+```txt
+GET /api/files/children?projectName=my-project&path=node_modules&force=true
+```
+
+Large and binary files are protected. Files above `security.maxFileSizeMb` are rejected by the backend, and binary formats such as images, archives, videos, executables, and PDFs are not opened in Monaco as text.
+
+## Project Runtime Dashboard
+
+The IDE header shows a compact runtime dashboard:
+
+```txt
+🖥 terminals   🤖 agents   📋 tasks
+```
+
+Terminals use the real active terminal count for the current project. AI agents and tasks are placeholders for now and show `0` with `AI coming soon`.

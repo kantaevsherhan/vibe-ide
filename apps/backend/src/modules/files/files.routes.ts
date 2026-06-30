@@ -11,6 +11,10 @@ export async function registerFilesRoutes(app: FastifyInstance, files: FilesServ
     tree: await files.tree(request.query.projectName)
   }));
 
+  app.get<{ Querystring: { projectName: string; path?: string; force?: string } }>('/api/files/children', async (request) =>
+    files.children(request.query.projectName, request.query.path ?? '', request.query.force === 'true')
+  );
+
   app.get<{ Querystring: ProjectPathQuery }>('/api/files/read', async (request) => {
     const content = await files.read(request.query.projectName, request.query.path ?? '');
     return { content };

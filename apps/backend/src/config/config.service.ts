@@ -41,7 +41,8 @@ export class ConfigService {
       server: { ...defaults.server, ...partial.server },
       auth: { ...defaults.auth, ...partial.auth },
       workspace: { ...defaults.workspace, ...partial.workspace },
-      security: { ...defaults.security, ...partial.security }
+      security: { ...defaults.security, ...partial.security },
+      ignore: { ...defaults.ignore, ...partial.ignore }
     };
   }
 }

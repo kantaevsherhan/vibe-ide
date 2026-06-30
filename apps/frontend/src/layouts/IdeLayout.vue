@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router';
 import ActivityBar from '../components/activity-bar/ActivityBar.vue';
 import CodeEditor from '../components/editor/CodeEditor.vue';
 import EditorTabs from '../components/editor/EditorTabs.vue';
+import ProjectRuntimeDashboard from '../components/runtime/ProjectRuntimeDashboard.vue';
 import FileExplorer from '../components/sidebar/FileExplorer.vue';
 import GitPanel from '../components/sidebar/GitPanel.vue';
 import TerminalPanel from '../components/sidebar/TerminalPanel.vue';
@@ -193,6 +194,7 @@ onBeforeUnmount(() => {
         <button class="text-ide-muted hover:text-ide-text" @click="backToProjects">← Projects</button>
         <span class="text-ide-muted">/</span>
         <span class="font-mono text-ide-accent">{{ projectName }}</span>
+        <ProjectRuntimeDashboard />
       </div>
       <EditorTabs />
       <CodeEditor />

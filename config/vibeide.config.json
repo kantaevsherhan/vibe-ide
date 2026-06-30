@@ -11,12 +11,18 @@
     "sessionSecret": "change-this-secret"
   },
   "workspace": {
-    "path": "workspace"
+    "path": "workspace",
+    "maxFolderChildren": 500
   },
   "security": {
     "allowTerminal": true,
     "allowGit": true,
-    "maxFileSizeMb": 10,
+    "maxFileSizeMb": 5,
     "allowedOrigins": ["*"]
+  },
+  "ignore": {
+    "enabled": true,
+    "useDefaultRules": true,
+    "vibeIgnoreFile": ".vibeignore"
   }
 }

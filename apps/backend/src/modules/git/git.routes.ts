@@ -2,9 +2,9 @@ import type { FastifyInstance } from 'fastify';
 import type { GitService } from './git.service.js';
 
 export async function registerGitRoutes(app: FastifyInstance, git: GitService) {
-  app.get<{ Querystring: { projectName: string } }>('/api/git/status', async (request) => ({
-    files: await git.status(request.query.projectName)
-  }));
+  app.get<{ Querystring: { projectName: string } }>('/api/git/status', async (request) =>
+    git.status(request.query.projectName)
+  );
   app.get<{ Querystring: { projectName: string; path?: string } }>('/api/git/diff', async (request) => ({
     diff: await git.diff(request.query.projectName, request.query.path)
   }));

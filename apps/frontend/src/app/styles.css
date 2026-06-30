@@ -104,6 +104,26 @@ input:focus-visible {
   pointer-events: auto;
 }
 
+.runtime-dashboard {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-left: 1px solid var(--border);
+  padding-left: 8px;
+  color: var(--text-muted);
+}
+
+.runtime-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.runtime-soon {
+  font-size: 11px;
+  color: #6f6f6f;
+}
+
 .desktop-action-button {
   display: inline-flex;
   height: 26px;

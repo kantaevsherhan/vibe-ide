@@ -14,12 +14,18 @@ export type VibeIdeConfig = {
   };
   workspace: {
     path: string;
+    maxFolderChildren: number;
   };
   security: {
     allowTerminal: boolean;
     allowGit: boolean;
     maxFileSizeMb: number;
     allowedOrigins: string[];
+  };
+  ignore: {
+    enabled: boolean;
+    useDefaultRules: boolean;
+    vibeIgnoreFile: string;
   };
 };
 
@@ -37,13 +43,19 @@ export function createDefaultConfig(projectRoot: string): VibeIdeConfig {
       sessionSecret: 'change-this-secret'
     },
     workspace: {
-      path: process.env.WORKSPACE_DIR ?? path.join(projectRoot, 'workspace')
+      path: process.env.WORKSPACE_DIR ?? path.join(projectRoot, 'workspace'),
+      maxFolderChildren: 500
     },
     security: {
       allowTerminal: true,
       allowGit: true,
-      maxFileSizeMb: 10,
+      maxFileSizeMb: 5,
       allowedOrigins: ['*']
+    },
+    ignore: {
+      enabled: true,
+      useDefaultRules: true,
+      vibeIgnoreFile: '.vibeignore'
     }
   };
 }

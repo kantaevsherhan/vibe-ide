@@ -19,6 +19,7 @@ import { ProjectsService } from './modules/projects/projects.service.js';
 import { registerProjectsRoutes } from './modules/projects/projects.routes.js';
 import { TerminalService } from './modules/terminal/terminal.service.js';
 import { registerTerminalRoutes } from './modules/terminal/terminal.routes.js';
+import { IgnoreService } from './modules/workspace/ignore.service.js';
 import { WorkspaceService } from './modules/workspace/workspace.service.js';
 
 const app = Fastify({ logger: true });
@@ -61,7 +62,8 @@ await app.register(websocket);
 const auth = new AuthService(config);
 const requireAuth = createRequireAuth(auth);
 const projects = new ProjectsService(workspace);
-const files = new FilesService(projects, config);
+const ignore = new IgnoreService(projects, config);
+const files = new FilesService(projects, ignore, config);
 const git = new GitService(projects, config);
 const terminals = new TerminalService(projects, config);
 projects.setTerminalCountProvider((projectName) => terminals.count(projectName));

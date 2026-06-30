@@ -1,9 +1,14 @@
 import { apiRequest } from './api';
-import type { FileNode } from '../types/file';
+import type { FileNode, FolderChildrenResponse } from '../types/file';
 
 export const filesApi = {
   async tree(projectName: string) {
     return apiRequest<{ tree: FileNode[] }>(`/api/files/tree?projectName=${encodeURIComponent(projectName)}`);
+  },
+  async children(projectName: string, path = '', force = false) {
+    return apiRequest<FolderChildrenResponse>(
+      `/api/files/children?projectName=${encodeURIComponent(projectName)}&path=${encodeURIComponent(path)}&force=${force}`
+    );
   },
   async read(projectName: string, path: string) {
     return apiRequest<{ content: string }>(

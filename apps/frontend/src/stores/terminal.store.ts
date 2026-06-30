@@ -5,6 +5,11 @@ import type { TerminalOutputMessage, TerminalSession } from '../types/terminal';
 
 const socket = new TerminalSocket();
 
+function createTerminalId() {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  return `term-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export const useTerminalStore = defineStore('terminal', () => {
   const sessions = ref<TerminalSession[]>([]);
   const activeId = ref<string | null>(null);
@@ -31,7 +36,7 @@ export const useTerminalStore = defineStore('terminal', () => {
   function create() {
     if (!projectName.value) return null;
     connect();
-    const id = crypto.randomUUID();
+    const id = createTerminalId();
     activeId.value = id;
     socket.send({ type: 'create', projectName: projectName.value, terminalId: id });
     return id;

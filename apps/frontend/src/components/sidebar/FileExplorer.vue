@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { FilePlus, FolderPlus, RefreshCw } from '@lucide/vue';
-import { onMounted, ref } from 'vue';
+import { onMounted } from 'vue';
 import { useEditorStore } from '../../stores/editor.store';
 import { useFilesStore } from '../../stores/files.store';
 import type { FileNode } from '../../types/file';
@@ -8,21 +8,22 @@ import FileTreeNode from './FileTreeNode.vue';
 
 const files = useFilesStore();
 const editor = useEditorStore();
-const expanded = ref<Set<string>>(new Set());
 
 onMounted(() => {
   void files.refresh();
 });
 
-function toggle(node: FileNode) {
+async function toggle(node: FileNode, force = false) {
   if (node.type === 'file') {
+    if (node.isBinary) {
+      files.ignoredMessage = 'Binary file preview is not supported.';
+      return;
+    }
     void editor.open(node.path);
     return;
   }
 
-  if (expanded.value.has(node.path)) expanded.value.delete(node.path);
-  else expanded.value.add(node.path);
-  expanded.value = new Set(expanded.value);
+  await files.toggleFolder(node, force);
 }
 
 async function createFile() {
@@ -64,17 +65,28 @@ async function remove(path: string) {
     <p v-if="files.error" class="mx-3 mb-2 border border-red-500/40 bg-red-500/10 p-2 text-xs text-red-200">
       {{ files.error }}
     </p>
+    <p v-if="files.ignoredMessage" class="mx-3 mb-2 border border-ide-border bg-ide-panel p-2 text-xs text-ide-muted">
+      {{ files.ignoredMessage }}
+    </p>
 
     <div class="min-h-0 flex-1 overflow-auto pb-3 thin-scrollbar">
-      <p v-if="!files.loading && files.tree.length === 0" class="px-3 py-4 text-ide-muted">Workspace is empty.</p>
+      <div v-if="files.folderLimits['']" class="px-3 py-4 text-xs text-ide-muted">
+        <div>Folder is too large</div>
+        <div>{{ files.folderLimits[''].total }} items</div>
+      </div>
+      <p v-else-if="!files.loading && files.tree.length === 0" class="px-3 py-4 text-ide-muted">Workspace is empty.</p>
       <FileTreeNode
         v-for="node in files.tree"
         :key="node.path"
         :node="node"
         :depth="0"
-        :expanded="expanded"
+        :expanded="files.expandedFolders"
+        :loading-folders="files.loadingFolders"
+        :children-by-path="files.childrenByPath"
+        :folder-limits="files.folderLimits"
         :active-path="editor.activePath"
         @toggle="toggle"
+        @open-anyway="toggle($event, true)"
         @remove="remove"
       />
     </div>

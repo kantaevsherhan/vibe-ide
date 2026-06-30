@@ -3,3 +3,9 @@ export type GitFileStatus = {
   status: 'modified' | 'added' | 'deleted' | 'untracked' | 'renamed' | 'unknown';
   raw: string;
 };
+
+export type GitStatusResponse = {
+  isRepository: boolean;
+  message?: string;
+  files: GitFileStatus[];
+};

@@ -1,9 +1,9 @@
 import { apiRequest } from './api';
-import type { GitFileStatus } from '../types/git';
+import type { GitStatusResponse } from '../types/git';
 
 export const gitApi = {
   async status(projectName: string) {
-    return apiRequest<{ files: GitFileStatus[] }>(`/api/git/status?projectName=${encodeURIComponent(projectName)}`);
+    return apiRequest<GitStatusResponse>(`/api/git/status?projectName=${encodeURIComponent(projectName)}`);
   },
   async diff(projectName: string, path: string) {
     return apiRequest<{ diff: string }>(
