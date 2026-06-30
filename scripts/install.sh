@@ -19,6 +19,58 @@ need git
 need node
 need npm
 
+sudo_prefix() {
+  if [ "$(id -u)" -eq 0 ]; then
+    return 0
+  fi
+
+  if command -v sudo >/dev/null 2>&1; then
+    printf 'sudo'
+    return 0
+  fi
+
+  return 1
+}
+
+ensure_user_writable_dir() {
+  local dir="$1"
+  local label="$2"
+  local parent
+  local owner_name
+  parent="$(dirname "$dir")"
+  owner_name="$(id -un 2>/dev/null || printf 'current user')"
+
+  if [ -d "$dir" ]; then
+    if [ -w "$dir" ]; then
+      return
+    fi
+  elif [ -d "$parent" ] && [ -w "$parent" ]; then
+    mkdir -p "$dir"
+    return
+  fi
+
+  if [ "$(id -u)" -eq 0 ]; then
+    mkdir -p "$dir"
+    return
+  fi
+
+  local sudo_cmd
+  if sudo_cmd="$(sudo_prefix)"; then
+    echo "$label requires elevated permissions: $dir"
+    echo "Creating it with sudo and assigning it to $owner_name"
+    "$sudo_cmd" mkdir -p "$dir"
+    "$sudo_cmd" chown -R "$(id -u):$(id -g)" "$dir"
+    return
+  fi
+
+  echo "$label is not writable: $dir"
+  echo "Choose a user-writable path, for example:"
+  echo "  VIBEIDE_INSTALL_DIR=\$HOME/vibe-ide"
+  echo "Or create it manually as root and give ownership to this user:"
+  echo "  mkdir -p '$dir' && chown -R $(id -u):$(id -g) '$dir'"
+  exit 1
+}
+
 install_build_tools() {
   if command -v make >/dev/null 2>&1 && command -v g++ >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
     return
@@ -75,6 +127,8 @@ if [ "$NODE_MAJOR" -lt 20 ]; then
 fi
 
 install_build_tools
+ensure_user_writable_dir "$INSTALL_DIR" "Install directory"
+ensure_user_writable_dir "$WORKSPACE_DIR" "Workspace directory"
 
 if [ -d "$INSTALL_DIR/.git" ]; then
   echo "Updating VibeIDE in $INSTALL_DIR"
