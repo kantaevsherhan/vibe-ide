@@ -10,9 +10,9 @@ export const filesApi = {
       `/api/files/children?projectName=${encodeURIComponent(projectName)}&path=${encodeURIComponent(path)}&force=${force}`
     );
   },
-  async read(projectName: string, path: string) {
+  async read(projectName: string, path: string, force = false) {
     return apiRequest<{ content: string }>(
-      `/api/files/read?projectName=${encodeURIComponent(projectName)}&path=${encodeURIComponent(path)}`
+      `/api/files/read?projectName=${encodeURIComponent(projectName)}&path=${encodeURIComponent(path)}&force=${force}`
     );
   },
   async write(projectName: string, path: string, content: string) {

@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
+import { ApiError } from '../services/api';
 import { filesApi } from '../services/files.api';
 import type { OpenFile } from '../types/file';
 
@@ -12,6 +13,7 @@ export const useEditorStore = defineStore('editor', () => {
   const activePath = ref<string | null>(null);
   const projectName = ref<string | null>(null);
   const saving = ref(false);
+  const blockedFile = ref<{ path: string; title: string; message: string; canForceOpen: boolean } | null>(null);
 
   const activeFile = computed(() => openFiles.value.find((file) => file.path === activePath.value) ?? null);
 
@@ -20,19 +22,60 @@ export const useEditorStore = defineStore('editor', () => {
     projectName.value = nextProjectName;
     openFiles.value = [];
     activePath.value = null;
+    blockedFile.value = null;
   }
 
-  async function open(path: string) {
+  async function open(path: string, force = false) {
     if (!projectName.value) return;
     const existing = openFiles.value.find((file) => file.path === path);
     if (existing) {
       activePath.value = path;
+      blockedFile.value = null;
       return;
     }
 
-    const { content } = await filesApi.read(projectName.value, path);
-    openFiles.value.push({ path, name: fileName(path), content, savedContent: content });
-    activePath.value = path;
+    try {
+      const { content } = await filesApi.read(projectName.value, path, force);
+      openFiles.value.push({ path, name: fileName(path), content, savedContent: content });
+      activePath.value = path;
+      blockedFile.value = null;
+    } catch (error) {
+      if (error instanceof ApiError && error.statusCode === 413) {
+        activePath.value = null;
+        blockedFile.value = {
+          path,
+          title: 'Large file',
+          message: 'This file is larger than 5MB.',
+          canForceOpen: true
+        };
+        return;
+      }
+
+      if (error instanceof ApiError && error.statusCode === 415) {
+        activePath.value = null;
+        blockedFile.value = {
+          path,
+          title: 'Binary file preview is not supported',
+          message: error.message,
+          canForceOpen: false
+        };
+        return;
+      }
+
+      activePath.value = null;
+      blockedFile.value = {
+        path,
+        title: 'Cannot open file',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        canForceOpen: false
+      };
+    }
+  }
+
+  async function openAnyway() {
+    const path = blockedFile.value?.path;
+    if (!path) return;
+    await open(path, true);
   }
 
   function close(path: string) {
@@ -67,5 +110,19 @@ export const useEditorStore = defineStore('editor', () => {
     return Boolean(file && file.content !== file.savedContent);
   }
 
-  return { openFiles, activePath, activeFile, projectName, saving, setProject, open, close, updateContent, saveActive, isDirty };
+  return {
+    openFiles,
+    activePath,
+    activeFile,
+    projectName,
+    saving,
+    blockedFile,
+    setProject,
+    open,
+    openAnyway,
+    close,
+    updateContent,
+    saveActive,
+    isDirty
+  };
 });

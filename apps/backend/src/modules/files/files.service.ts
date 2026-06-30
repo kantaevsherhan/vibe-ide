@@ -80,13 +80,13 @@ export class FilesService {
     };
   }
 
-  async read(projectName: string, relativePath: string) {
+  async read(projectName: string, relativePath: string, force = false) {
     const projectPath = await this.projects.ensureProjectExists(projectName);
     const filePath = safePath(projectPath, relativePath);
     if (this.isBinaryByExtension(relativePath)) {
       throw Object.assign(new Error('Binary file preview is not supported.'), { statusCode: 415 });
     }
-    await assertReadableTextFile(filePath, this.maxFileSizeBytes);
+    await assertReadableTextFile(filePath, force ? Number.MAX_SAFE_INTEGER : this.maxFileSizeBytes);
     return fs.readFile(filePath, 'utf8');
   }
 

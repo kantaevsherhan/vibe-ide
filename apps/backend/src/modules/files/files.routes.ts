@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { FilesService } from './files.service.js';
 
 type PathQuery = { path?: string };
-type ProjectPathQuery = { projectName: string; path?: string };
+type ProjectPathQuery = { projectName: string; path?: string; force?: string };
 type WriteBody = { projectName: string; path: string; content: string };
 type CreateBody = { projectName: string; path: string; content?: string };
 
@@ -16,7 +16,7 @@ export async function registerFilesRoutes(app: FastifyInstance, files: FilesServ
   );
 
   app.get<{ Querystring: ProjectPathQuery }>('/api/files/read', async (request) => {
-    const content = await files.read(request.query.projectName, request.query.path ?? '');
+    const content = await files.read(request.query.projectName, request.query.path ?? '', request.query.force === 'true');
     return { content };
   });
 

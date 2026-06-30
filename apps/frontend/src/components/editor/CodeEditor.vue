@@ -114,7 +114,21 @@ onBeforeUnmount(() => {
 <template>
   <section class="relative min-h-0 bg-ide-main">
     <div v-show="activeFile" ref="container" class="h-full w-full" />
-    <div v-if="!activeFile" class="grid h-full place-items-center text-center text-ide-muted">
+    <div v-if="editorStore.blockedFile" class="grid h-full place-items-center px-6 text-center text-ide-muted">
+      <div class="max-w-md">
+        <div class="mb-2 font-mono text-2xl text-ide-text">{{ editorStore.blockedFile.title }}</div>
+        <p>{{ editorStore.blockedFile.message }}</p>
+        <p class="mt-2 truncate font-mono text-xs text-[#858585]">{{ editorStore.blockedFile.path }}</p>
+        <button
+          v-if="editorStore.blockedFile.canForceOpen"
+          class="mt-5 rounded bg-ide-accent px-4 py-2 text-sm font-medium text-white hover:bg-[#1188d8]"
+          @click="editorStore.openAnyway"
+        >
+          Open anyway
+        </button>
+      </div>
+    </div>
+    <div v-else-if="!activeFile" class="grid h-full place-items-center text-center text-ide-muted">
       <div>
         <div class="mb-3 font-mono text-3xl text-[#3f3f3f]">VibeIDE</div>
         <p>Open a file from the workspace to start coding.</p>

@@ -15,10 +15,6 @@ onMounted(() => {
 
 async function toggle(node: FileNode, force = false) {
   if (node.type === 'file') {
-    if (node.isBinary) {
-      files.ignoredMessage = 'Binary file preview is not supported.';
-      return;
-    }
     void editor.open(node.path);
     return;
   }
