@@ -41,6 +41,7 @@ function resize() {
   if (!fitAddon || !terminals.activeId) return;
   fitAddon.fit();
   terminals.resize(terminals.activeId, xterm?.cols ?? 100, xterm?.rows ?? 24);
+  xterm?.focus();
 }
 
 async function renderSession() {
@@ -61,12 +62,14 @@ async function renderSession() {
     xterm.write(terminals.outputs[id] ?? '');
     lastRenderedId = id;
     resize();
+    xterm.focus();
     return;
   }
 
   const output = terminals.outputs[id] ?? '';
   xterm.clear();
   xterm.write(output);
+  xterm.focus();
 }
 
 watch(() => terminals.activeId, renderSession);
@@ -75,6 +78,7 @@ watch(() => terminals.activeId && terminals.outputs[terminals.activeId], renderS
 onMounted(() => {
   ensureTerminal();
   void renderSession();
+  xterm?.focus();
 });
 
 onBeforeUnmount(() => {
