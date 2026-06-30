@@ -1,0 +1,22 @@
+{
+  "server": {
+    "host": "0.0.0.0",
+    "port": 8080
+  },
+  "auth": {
+    "enabled": true,
+    "username": "admin",
+    "password": "change-me",
+    "email": "admin@example.com",
+    "sessionSecret": "change-this-secret"
+  },
+  "workspace": {
+    "path": "C:\\projects\\vibe-ide\\workspace"
+  },
+  "security": {
+    "allowTerminal": true,
+    "allowGit": true,
+    "maxFileSizeMb": 10,
+    "allowedOrigins": ["*"]
+  }
+}

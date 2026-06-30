@@ -1,0 +1,23 @@
+{
+  "name": "vibe-ide",
+  "private": true,
+  "version": "0.1.0",
+  "description": "A small browser IDE for vibe-coding in a local workspace.",
+  "workspaces": [
+    "apps/frontend",
+    "apps/backend"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n backend,frontend \"npm run dev --workspace apps/backend\" \"npm run dev --workspace apps/frontend\"",
+    "build": "npm run build --workspace apps/frontend && npm run build --workspace apps/backend",
+    "start": "npm run start --workspace apps/backend",
+    "typecheck": "npm run typecheck --workspaces"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "wait-on": "^9.0.10"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
