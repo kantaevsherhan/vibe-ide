@@ -18,10 +18,12 @@ const defaultAgents: AgentConfig[] = [
 
 export class AgentsConfigService {
   readonly path: string;
+  readonly legacyPath: string;
   private config?: AgentsConfigFile;
 
   constructor(projectRoot: string) {
-    this.path = process.env.VIBEIDE_AGENTS_CONFIG ?? path.join(projectRoot, 'config', 'agents.config.json');
+    this.path = process.env.VIBEIDE_SETTINGS_CONFIG ?? path.join(projectRoot, 'config', 'settings.json');
+    this.legacyPath = process.env.VIBEIDE_AGENTS_CONFIG ?? path.join(projectRoot, 'config', 'agents.config.json');
   }
 
   async load() {
@@ -30,9 +32,8 @@ export class AgentsConfigService {
       this.config = this.merge(JSON.parse(raw.replace(/^\uFEFF/, '')) as Partial<AgentsConfigFile>);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-      this.config = this.merge({});
-      await fs.mkdir(path.dirname(this.path), { recursive: true });
-      await fs.writeFile(this.path, `${JSON.stringify(this.config, null, 2)}\n`, 'utf8');
+      this.config = await this.loadLegacyOrDefault();
+      await this.save();
     }
 
     return this.config;
@@ -41,6 +42,33 @@ export class AgentsConfigService {
   get value() {
     if (!this.config) throw new Error('Agents config has not been loaded.');
     return this.config;
+  }
+
+  async update(next: Partial<AgentsConfigFile>) {
+    this.config = this.merge({
+      agents: next.agents ?? this.value.agents,
+      notifications: {
+        ...this.value.notifications,
+        ...next.notifications,
+        telegram: {
+          ...this.value.notifications.telegram,
+          ...next.notifications?.telegram
+        }
+      }
+    });
+    await this.save();
+    return this.value;
+  }
+
+  async save() {
+    await fs.mkdir(path.dirname(this.path), { recursive: true });
+    await fs.writeFile(this.path, `${JSON.stringify(this.value, null, 2)}\n`, 'utf8');
+  }
+
+  private async loadLegacyOrDefault() {
+    const raw = await fs.readFile(this.legacyPath, 'utf8').catch(() => null);
+    if (!raw) return this.merge({});
+    return this.merge(JSON.parse(raw.replace(/^\uFEFF/, '')) as Partial<AgentsConfigFile>);
   }
 
   private merge(partial: Partial<AgentsConfigFile>): AgentsConfigFile {

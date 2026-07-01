@@ -186,8 +186,8 @@ function highlightedName(name: string) {
 function deleteMessage() {
   const target = deleteTarget.value;
   if (!target) return '';
-  const kind = target.type === 'directory' ? 'папку' : 'файл';
-  return `Вы действительно хотите удалить ${kind} "${target.path}"? Он исчезнет навсегда.`;
+  const kind = target.type === 'directory' ? 'folder' : 'file';
+  return `Are you sure you want to delete the ${kind} "${target.path}"? This action cannot be undone.`;
 }
 </script>
 
@@ -278,9 +278,9 @@ function deleteMessage() {
     />
     <ConfirmModal
       :open="Boolean(deleteTarget)"
-      title="Удалить"
+      title="Delete"
       :message="deleteMessage()"
-      confirm-label="Удалить"
+      confirm-label="Delete"
       danger
       @close="deleteTarget = null"
       @confirm="confirmDelete"

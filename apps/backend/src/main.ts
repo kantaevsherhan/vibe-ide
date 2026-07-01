@@ -28,6 +28,8 @@ import { NotesService } from './modules/notes/notes.service.js';
 import { registerNotesRoutes } from './modules/notes/notes.routes.js';
 import { ProjectsService } from './modules/projects/projects.service.js';
 import { registerProjectsRoutes } from './modules/projects/projects.routes.js';
+import { SettingsService } from './modules/settings/settings.service.js';
+import { registerSettingsRoutes } from './modules/settings/settings.routes.js';
 import { SystemService } from './modules/system/system.service.js';
 import { registerSystemRoutes } from './modules/system/system.routes.js';
 import { TerminalService } from './modules/terminal/terminal.service.js';
@@ -84,11 +86,12 @@ const notes = new NotesService(projects);
 const system = new SystemService(projectRoot);
 const terminals = new TerminalService(projects, config);
 const taskQueue = new TaskQueueService();
-const telegram = new TelegramService(agentsConfigService.value);
+const telegram = new TelegramService(() => agentsConfigService.value);
 const notifications = new NotificationsService(telegram);
 const agentsManager = new AgentsManager(taskQueue, notifications);
 const agents = new AgentsService(projects, agentsConfigService, taskQueue, agentsManager);
 const health = new HealthService(git, terminals, agents);
+const settings = new SettingsService(agentsConfigService, workspace, config, telegram);
 projects.setTerminalCountProvider((projectName) => terminals.count(projectName));
 projects.setProjectDeleteProvider((projectName) => terminals.closeProject(projectName));
 projects.setGitHealthProvider((projectName) => git.health(projectName));
@@ -104,6 +107,7 @@ app.addHook('preHandler', async (request, reply) => {
     url.startsWith('/api/files/') ||
     url.startsWith('/api/notes/') ||
     url.startsWith('/api/git/') ||
+    url.startsWith('/api/settings') ||
     url.startsWith('/api/system/') ||
     url.startsWith('/api/workspace/') ||
     url.startsWith('/api/terminal/') ||
@@ -116,6 +120,7 @@ await registerProjectsRoutes(app, projects);
 await registerFilesRoutes(app, files);
 await registerNotesRoutes(app, notes);
 await registerGitRoutes(app, git);
+await registerSettingsRoutes(app, settings);
 await registerSystemRoutes(app, system);
 await registerTerminalRoutes(app, terminals, auth);
 await registerAgentsRoutes(app, agents, agentsManager, auth);

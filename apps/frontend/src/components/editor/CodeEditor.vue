@@ -4,8 +4,10 @@ import type * as Monaco from 'monaco-editor';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { resizeEventName } from '../../composables/useResizable';
 import { useEditorStore } from '../../stores/editor.store';
+import { useSettingsStore } from '../../stores/settings.store';
 
 const editorStore = useEditorStore();
+const settings = useSettingsStore();
 const container = ref<HTMLElement | null>(null);
 let monacoEditor: Monaco.editor.IStandaloneCodeEditor | null = null;
 let monacoInstance: typeof Monaco | null = null;
@@ -52,15 +54,26 @@ async function mountEditor() {
       'editorIndentGuide.background1': '#333333'
     }
   });
+  monacoInstance.editor.defineTheme('vibe-light', {
+    base: 'vs',
+    inherit: true,
+    rules: [],
+    colors: {
+      'editor.background': '#f3f3f3',
+      'editorLineNumber.foreground': '#6a6a6a',
+      'editorCursor.foreground': '#007acc',
+      'editorIndentGuide.background1': '#d0d0d0'
+    }
+  });
 
   monacoEditor = monacoInstance.editor.create(container.value, {
     value: activeFile.value?.content ?? '',
     language: activeFile.value ? languageFor(activeFile.value.path) : 'plaintext',
-    theme: 'vibe-dark',
+    theme: settings.local.theme === 'light' ? 'vibe-light' : 'vibe-dark',
     automaticLayout: true,
     minimap: { enabled: true },
-    fontFamily: 'JetBrains Mono, Cascadia Code, Consolas, monospace',
-    fontSize: 13,
+    fontFamily: settings.editorFontFamily,
+    fontSize: settings.local.fontSize,
     tabSize: 2,
     padding: { top: 14 }
   });
@@ -88,6 +101,19 @@ watch(
       monacoInstance.editor.setModelLanguage(model, languageFor(activeFile.value.path));
     }
     applyingExternalValue = false;
+  }
+);
+
+watch(
+  () => [settings.local.theme, settings.local.fontSize, settings.local.fontFamily] as const,
+  () => {
+    if (!monacoEditor || !monacoInstance) return;
+    monacoInstance.editor.setTheme(settings.local.theme === 'light' ? 'vibe-light' : 'vibe-dark');
+    monacoEditor.updateOptions({
+      fontFamily: settings.editorFontFamily,
+      fontSize: settings.local.fontSize
+    });
+    layoutEditor();
   }
 );
 

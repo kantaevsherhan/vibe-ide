@@ -14,7 +14,7 @@ The app combines a Vue/Monaco frontend with a Fastify backend, project-scoped fi
 - `.vibeignore` plus default ignored folders, with `Open Anyway` for manual inspection.
 - WebSocket terminals scoped to the current project.
 - Git status/diff scoped only to the project root, with optional `Initialize repository`.
-- CLI AI agents through `node-pty`: Claude Code, Codex, Gemini, or a custom command from `config/agents.config.json`.
+- CLI AI agents through `node-pty`: Claude Code, Codex, Gemini, or a custom command from `config/settings.json`.
 - Persistent file-backed task queue and logs under `.vibeide/agents`.
 - Telegram notifications for agent task events.
 - Compact Project Runtime Dashboard and Workspace Health widgets.
@@ -264,12 +264,45 @@ workspace/<project>
 
 Active terminals and their buffered output are kept in backend memory while the backend process is running. After backend restart, active terminals are reset.
 
+## Settings
+
+VibeIDE has two settings layers.
+
+Local settings are stored in browser `localStorage` and are unique for each device:
+
+- Theme: `Dark` or `Light`.
+- Editor font size.
+- Editor font family.
+
+Server settings are stored in:
+
+```txt
+config/settings.json
+```
+
+They are shared for every device that opens the same VibeIDE server:
+
+- AI agent command, arguments, and enabled state.
+- Custom agents.
+- Telegram notification settings.
+- Workspace information and future workspace options.
+
+Open `Settings` from the Projects page or from the IDE activity bar. Changes are saved automatically.
+
+Settings API:
+
+```txt
+GET  /api/settings
+PUT  /api/settings
+POST /api/settings/test-telegram
+```
+
 ## AI Agents
 
 VibeIDE runs CLI-based AI agents inside the current project. Agents are configured in:
 
 ```txt
-config/agents.config.json
+config/settings.json
 ```
 
 Example:
@@ -339,7 +372,7 @@ The Agents panel shows the resolved CLI path and startup errors, which helps cat
 
 Codex is configured with `--sandbox workspace-write`, so it can read and write inside the opened project while staying constrained to that workspace. VibeIDE strips the older unsupported `--ask-for-approval` argument when launching Codex through the adapter.
 
-The frontend cannot pass arbitrary commands or working directories. It can only send prompts to agents declared in `agents.config.json`.
+The frontend cannot pass arbitrary commands or working directories. It can only send prompts to agents declared in `settings.json`.
 
 ## Task Queue
 
@@ -381,7 +414,7 @@ Live output is streamed through:
 
 ## Telegram Notifications
 
-Telegram notifications are optional and disabled by default in `config/agents.config.json`.
+Telegram notifications are optional and disabled by default in `config/settings.json`.
 
 When enabled, VibeIDE sends notifications for agent task completion, errors, waiting state, and stopped tasks. Notification failures do not break agent execution.
 

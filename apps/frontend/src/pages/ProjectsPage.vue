@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { DownloadCloud, FolderPlus, LogOut } from '@lucide/vue';
+import { DownloadCloud, FolderPlus, LogOut, Settings } from '@lucide/vue';
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth.store';
@@ -8,6 +8,7 @@ import { useSystemStore } from '../stores/system.store';
 import ProjectCard from '../components/projects/ProjectCard.vue';
 import DeleteProjectModal from '../components/projects/DeleteProjectModal.vue';
 import CreateProjectModal from '../components/projects/CreateProjectModal.vue';
+import SettingsModal from '../components/settings/SettingsModal.vue';
 import type { CreateProjectInput, Project } from '../services/projects.api';
 
 const projects = useProjectsStore();
@@ -16,6 +17,7 @@ const auth = useAuthStore();
 const router = useRouter();
 const creating = ref(false);
 const creatingProject = ref(false);
+const settingsOpen = ref(false);
 const projectToDelete = ref<Project | null>(null);
 const searchQuery = ref('');
 
@@ -67,6 +69,10 @@ async function confirmDeleteProject(folderName: string) {
           <button class="desktop-action-button h-9 gap-2 px-3" @click="creating = true">
             <FolderPlus :size="16" />
             Add Project
+          </button>
+          <button class="desktop-action-button h-9 gap-2 px-3" @click="settingsOpen = true">
+            <Settings :size="16" />
+            Settings
           </button>
           <button class="desktop-action-button h-9 gap-2 px-3" @click="logout">
             <LogOut :size="16" />
@@ -130,5 +136,6 @@ async function confirmDeleteProject(folderName: string) {
       @close="creating = false"
       @create="createProject"
     />
+    <SettingsModal :open="settingsOpen" @close="settingsOpen = false" />
   </main>
 </template>

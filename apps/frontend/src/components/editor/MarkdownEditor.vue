@@ -9,10 +9,12 @@ import markdownItTaskLists from 'markdown-it-task-lists';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { resizeEventName } from '../../composables/useResizable';
 import { useEditorStore } from '../../stores/editor.store';
+import { useSettingsStore } from '../../stores/settings.store';
 
 type MarkdownMode = 'edit' | 'preview' | 'split';
 
 const editorStore = useEditorStore();
+const settings = useSettingsStore();
 const container = ref<HTMLElement | null>(null);
 const mode = ref<MarkdownMode>('split');
 let monacoEditor: Monaco.editor.IStandaloneCodeEditor | null = null;
@@ -51,15 +53,37 @@ function scheduleSave() {
 async function mountEditor() {
   if (!container.value) return;
   monacoInstance = await loader.init();
+  monacoInstance.editor.defineTheme('vibe-dark', {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [],
+    colors: {
+      'editor.background': '#1e1e1e',
+      'editorLineNumber.foreground': '#858585',
+      'editorCursor.foreground': '#007acc',
+      'editorIndentGuide.background1': '#333333'
+    }
+  });
+  monacoInstance.editor.defineTheme('vibe-light', {
+    base: 'vs',
+    inherit: true,
+    rules: [],
+    colors: {
+      'editor.background': '#f3f3f3',
+      'editorLineNumber.foreground': '#6a6a6a',
+      'editorCursor.foreground': '#007acc',
+      'editorIndentGuide.background1': '#d0d0d0'
+    }
+  });
   monacoEditor = monacoInstance.editor.create(container.value, {
     value: activeFile.value?.content ?? '',
     language: 'markdown',
-    theme: 'vibe-dark',
+    theme: settings.local.theme === 'light' ? 'vibe-light' : 'vibe-dark',
     automaticLayout: true,
     minimap: { enabled: false },
     wordWrap: 'on',
-    fontFamily: 'JetBrains Mono, Cascadia Code, Consolas, monospace',
-    fontSize: 13,
+    fontFamily: settings.editorFontFamily,
+    fontSize: settings.local.fontSize,
     tabSize: 2,
     padding: { top: 14 }
   });
@@ -98,6 +122,19 @@ watch(
 );
 
 watch(mode, layoutEditor);
+
+watch(
+  () => [settings.local.theme, settings.local.fontSize, settings.local.fontFamily] as const,
+  () => {
+    if (!monacoEditor || !monacoInstance) return;
+    monacoInstance.editor.setTheme(settings.local.theme === 'light' ? 'vibe-light' : 'vibe-dark');
+    monacoEditor.updateOptions({
+      fontFamily: settings.editorFontFamily,
+      fontSize: settings.local.fontSize
+    });
+    layoutEditor();
+  }
+);
 
 onMounted(() => {
   void mountEditor();

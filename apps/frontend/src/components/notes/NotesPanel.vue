@@ -185,8 +185,8 @@ function handleKeys(event: KeyboardEvent) {
 function deleteMessage() {
   const target = deleteTarget.value;
   if (!target) return '';
-  const kind = target.type === 'directory' ? 'папку' : 'заметку';
-  return `Вы действительно хотите удалить ${kind} "${target.path}"? Она исчезнет навсегда.`;
+  const kind = target.type === 'directory' ? 'folder' : 'note';
+  return `Are you sure you want to delete the ${kind} "${target.path}"? This action cannot be undone.`;
 }
 </script>
 
@@ -260,9 +260,9 @@ function deleteMessage() {
     />
     <ConfirmModal
       :open="Boolean(deleteTarget)"
-      title="Удалить"
+      title="Delete"
       :message="deleteMessage()"
-      confirm-label="Удалить"
+      confirm-label="Delete"
       danger
       @close="deleteTarget = null"
       @confirm="confirmDelete"
