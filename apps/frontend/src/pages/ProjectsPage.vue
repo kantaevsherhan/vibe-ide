@@ -93,9 +93,9 @@ async function logout() {
 
       <section v-if="!projects.loading && projects.projects.length === 0" class="grid min-h-72 place-items-center border border-dashed border-ide-border bg-ide-sidebar/60 text-center">
         <div>
-          <h2 class="mb-2 text-lg font-semibold">У вас пока нет проектов</h2>
-          <p class="mb-4 text-ide-muted">Создайте первый проект, чтобы начать работу</p>
-          <button class="bg-ide-accent px-4 py-2 font-medium text-white hover:bg-[#0b86d1]" @click="creating = true">Создать проект</button>
+          <h2 class="mb-2 text-lg font-semibold">You do not have any projects yet</h2>
+          <p class="mb-4 text-ide-muted">Create your first project to start working</p>
+          <button class="bg-ide-accent px-4 py-2 font-medium text-white hover:bg-[#0b86d1]" @click="creating = true">Create project</button>
         </div>
       </section>
 

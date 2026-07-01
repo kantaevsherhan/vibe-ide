@@ -161,7 +161,7 @@ onBeforeUnmount(() => {
         <div class="truncate text-sm font-semibold">VibeIDE / {{ projectName }}</div>
         <div class="truncate text-[11px] text-ide-muted">{{ activeTitle }}</div>
       </div>
-      <button v-if="deferredInstallPrompt" class="install-button" @click="installPwa">Установить VibeIDE</button>
+      <button v-if="deferredInstallPrompt" class="install-button" @click="installPwa">Install VibeIDE</button>
       <button v-if="!isFullscreen" class="touch-button" title="Enter Fullscreen" @click="enterFullscreen">
         <Maximize :size="20" />
         <span class="sr-only">Enter Fullscreen</span>
@@ -194,7 +194,7 @@ onBeforeUnmount(() => {
         <button class="desktop-action-button px-2" @click="backToProjects">← Projects</button>
         <button v-if="deferredInstallPrompt" class="desktop-action-button gap-2 px-2" @click="installPwa">
           <Download :size="14" />
-          Установить VibeIDE
+          Install VibeIDE
         </button>
         <button v-if="!isFullscreen" class="desktop-action-button w-8" title="Enter Fullscreen" @click="enterFullscreen">
           <Maximize :size="15" />
