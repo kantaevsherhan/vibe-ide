@@ -5,6 +5,7 @@ type PathQuery = { path?: string };
 type ProjectPathQuery = { projectName: string; path?: string; force?: string };
 type WriteBody = { projectName: string; path: string; content: string };
 type CreateBody = { projectName: string; path: string; content?: string };
+type RenameBody = { projectName: string; from: string; to: string };
 
 export async function registerFilesRoutes(app: FastifyInstance, files: FilesService) {
   app.get<{ Querystring: { projectName: string } }>('/api/files/tree', async (request) => ({
@@ -39,4 +40,18 @@ export async function registerFilesRoutes(app: FastifyInstance, files: FilesServ
     await files.delete(request.query.projectName, request.query.path ?? '');
     return { ok: true };
   });
+
+  app.put<{ Body: RenameBody }>('/api/files/rename', async (request) => {
+    await files.rename(request.body.projectName, request.body.from, request.body.to);
+    return { ok: true };
+  });
+
+  app.post<{ Body: RenameBody }>('/api/files/duplicate', async (request) => {
+    await files.duplicate(request.body.projectName, request.body.from, request.body.to);
+    return { ok: true };
+  });
+
+  app.get<{ Querystring: { projectName: string; query?: string } }>('/api/files/search', async (request) => ({
+    results: await files.search(request.query.projectName, request.query.query ?? '')
+  }));
 }

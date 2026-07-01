@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronDown, ChevronRight, File, Folder, Loader2, Trash2 } from '@lucide/vue';
+import { ChevronDown, ChevronRight, File, Folder, Loader2, MoreHorizontal } from '@lucide/vue';
 import type { FileNode, FolderChildrenResponse } from '../../types/file';
 
 defineProps<{
@@ -15,7 +15,8 @@ defineProps<{
 defineEmits<{
   toggle: [node: FileNode, force?: boolean];
   openAnyway: [node: FileNode];
-  remove: [path: string];
+  menu: [event: MouseEvent, node: FileNode];
+  select: [node: FileNode];
 }>();
 </script>
 
@@ -25,7 +26,8 @@ defineEmits<{
       class="group flex h-6 cursor-default items-center gap-1 pr-2 text-ide-muted hover:bg-white/5 hover:text-ide-text"
       :class="{ 'bg-[#37373d] text-ide-text': activePath === node.path, 'opacity-55': node.isIgnored }"
       :style="{ paddingLeft: `${8 + depth * 14}px` }"
-      @click="$emit('toggle', node)"
+      @click="$emit('select', node); $emit('toggle', node)"
+      @contextmenu.prevent.stop="$emit('menu', $event, node)"
     >
       <span class="grid w-3 place-items-center text-ide-muted">
         <Loader2 v-if="loadingFolders.has(node.path)" class="animate-spin" :size="12" />
@@ -45,10 +47,10 @@ defineEmits<{
       </button>
       <button
         class="ml-auto hidden h-5 w-5 place-items-center rounded text-xs text-ide-muted hover:bg-white/10 hover:text-ide-text group-hover:grid"
-        title="Delete"
-        @click.stop="$emit('remove', node.path)"
+        title="Actions"
+        @click.stop="$emit('select', node); $emit('menu', $event, node)"
       >
-        <Trash2 :size="13" />
+        <MoreHorizontal :size="13" />
       </button>
     </div>
 
@@ -69,7 +71,8 @@ defineEmits<{
         :active-path="activePath"
         @toggle="$emit('toggle', $event)"
         @open-anyway="$emit('openAnyway', $event)"
-        @remove="$emit('remove', $event)"
+        @menu="(event, target) => $emit('menu', event, target)"
+        @select="$emit('select', $event)"
       />
     </template>
   </div>

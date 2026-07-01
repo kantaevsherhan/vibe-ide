@@ -122,6 +122,30 @@ export class FilesService {
     await fs.rm(targetPath, { recursive: true, force: true });
   }
 
+  async rename(projectName: string, from: string, to: string) {
+    const projectPath = await this.projects.ensureProjectExists(projectName);
+    const fromPath = safePath(projectPath, from);
+    const toPath = safePath(projectPath, to);
+    await fs.mkdir(path.dirname(toPath), { recursive: true });
+    await fs.rename(fromPath, toPath);
+  }
+
+  async duplicate(projectName: string, from: string, to: string) {
+    const projectPath = await this.projects.ensureProjectExists(projectName);
+    const fromPath = safePath(projectPath, from);
+    const toPath = safePath(projectPath, to);
+    const stats = await fs.stat(fromPath);
+    await fs.mkdir(path.dirname(toPath), { recursive: true });
+    await fs.cp(fromPath, toPath, { recursive: stats.isDirectory(), errorOnExist: true, force: false });
+  }
+
+  async search(projectName: string, query: string) {
+    const projectPath = await this.projects.ensureProjectExists(projectName);
+    const normalizedQuery = query.trim().toLowerCase();
+    if (!normalizedQuery) return [];
+    return this.searchDirectory(projectName, projectPath, '', normalizedQuery);
+  }
+
   private async readDirectory(projectPath: string, relativePath: string): Promise<FileTreeNode[]> {
     const directoryPath = safePath(projectPath, relativePath);
     const entries = await fs.readdir(directoryPath, { withFileTypes: true });
@@ -191,5 +215,26 @@ export class FilesService {
   private isBinaryByExtension(filePath: string) {
     const extension = filePath.split('.').pop()?.toLowerCase();
     return Boolean(extension && binaryExtensions.has(extension));
+  }
+
+  private async searchDirectory(projectName: string, projectPath: string, relativePath: string, query: string): Promise<FileNodeDto[]> {
+    const directoryPath = safePath(projectPath, relativePath);
+    const entries = await fs.readdir(directoryPath, { withFileTypes: true }).catch(() => []);
+    const results: FileNodeDto[] = [];
+
+    for (const entry of entries) {
+      const nodePath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
+      const ignored = await this.ignore.isIgnoredPath(projectName, nodePath).catch(() => false);
+      if (entry.name.startsWith('.git') || entry.name === '.vibeide' || ignored) continue;
+      if (entry.name.toLowerCase().includes(query)) {
+        results.push(await this.toNodeDto(projectPath, projectPath, nodePath, entry, false, false));
+      }
+      if (entry.isDirectory()) {
+        results.push(...(await this.searchDirectory(projectName, projectPath, nodePath, query)));
+      }
+      if (results.length >= 100) break;
+    }
+
+    return results.slice(0, 100);
   }
 }

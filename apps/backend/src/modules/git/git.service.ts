@@ -16,6 +16,7 @@ export type GitStatusResult = {
   isRepository: boolean;
   message?: string;
   files: GitFileStatus[];
+  branch?: string | null;
 };
 
 export class GitService {
@@ -34,9 +35,13 @@ export class GitService {
         files: []
       };
     }
-    const { stdout } = await this.git(projectPath, ['status', '--short']);
+    const [{ stdout }, { stdout: branch }] = await Promise.all([
+      this.git(projectPath, ['status', '--short']),
+      this.git(projectPath, ['branch', '--show-current'])
+    ]);
     return {
       isRepository: true,
+      branch: branch || null,
       files: stdout
         .split('\n')
         .filter(Boolean)
@@ -86,6 +91,31 @@ export class GitService {
     await this.ensureProjectGit(projectPath);
     const { stdout } = await this.git(projectPath, ['log', '--oneline', '-20']);
     return stdout;
+  }
+
+  async branches(projectName: string) {
+    ensureGitAllowed(this.config);
+    const projectPath = await this.projects.ensureProjectExists(projectName);
+    await this.ensureProjectGit(projectPath);
+    const [{ stdout: branches }, { stdout: current }] = await Promise.all([
+      this.git(projectPath, ['branch', '--format=%(refname:short)']),
+      this.git(projectPath, ['branch', '--show-current'])
+    ]);
+    return {
+      current: current || null,
+      branches: branches.split('\n').map((branch) => branch.trim()).filter(Boolean)
+    };
+  }
+
+  async checkout(projectName: string, branch: string) {
+    ensureGitAllowed(this.config);
+    if (!branch || branch.includes('..') || branch.startsWith('-')) {
+      throw Object.assign(new Error('Invalid branch name.'), { statusCode: 400 });
+    }
+    const projectPath = await this.projects.ensureProjectExists(projectName);
+    await this.ensureProjectGit(projectPath);
+    await this.git(projectPath, ['checkout', branch]);
+    return this.branches(projectName);
   }
 
   async health(projectName: string) {

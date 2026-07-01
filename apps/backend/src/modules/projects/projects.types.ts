@@ -23,7 +23,9 @@ export type Project = {
 export type ProjectMetadata = Pick<Project, 'name' | 'folderName' | 'description' | 'createdAt' | 'updatedAt'>;
 
 export type CreateProjectInput = {
+  source?: 'blank' | 'git';
   name: string;
   folderName: string;
   description?: string;
+  repositoryUrl?: string;
 };

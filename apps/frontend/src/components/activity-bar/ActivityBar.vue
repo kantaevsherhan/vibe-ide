@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { Bot, Files, GitBranch, LogOut, NotebookText, TerminalSquare } from '@lucide/vue';
+import { Bot, Files, GitBranch, LogOut, NotebookText, Settings, TerminalSquare } from '@lucide/vue';
 import { useRouter } from 'vue-router';
-import { useAuthStore } from '../../stores/auth.store';
 
 const model = defineModel<'files' | 'git' | 'terminal' | 'notes' | 'agents'>({ required: true });
-const auth = useAuthStore();
+defineEmits<{
+  settings: [];
+}>();
 const router = useRouter();
 
 const items = [
@@ -15,9 +16,8 @@ const items = [
   { id: 'agents', label: 'Agents', icon: Bot }
 ] as const;
 
-async function logout() {
-  await auth.logout();
-  await router.push('/login');
+async function exitProject() {
+  await router.push('/projects');
 }
 </script>
 
@@ -38,11 +38,18 @@ async function logout() {
       <component :is="item.icon" :size="22" :stroke-width="1.8" />
     </button>
     <button
-      title="Logout"
+      title="Exit Project"
       class="mt-auto grid h-11 w-full place-items-center text-ide-muted transition hover:text-ide-text"
-      @click="logout"
+      @click="exitProject"
     >
       <LogOut :size="20" :stroke-width="1.8" />
+    </button>
+    <button
+      title="Settings"
+      class="grid h-11 w-full place-items-center text-ide-muted transition hover:text-ide-text"
+      @click="$emit('settings')"
+    >
+      <Settings :size="20" :stroke-width="1.8" />
     </button>
   </nav>
 </template>

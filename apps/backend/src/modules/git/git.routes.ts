@@ -15,4 +15,10 @@ export async function registerGitRoutes(app: FastifyInstance, git: GitService) {
   app.get<{ Querystring: { projectName: string } }>('/api/git/log', async (request) => ({
     log: await git.log(request.query.projectName)
   }));
+  app.get<{ Querystring: { projectName: string } }>('/api/git/branches', async (request) =>
+    git.branches(request.query.projectName)
+  );
+  app.post<{ Body: { projectName: string; branch: string } }>('/api/git/checkout', async (request) =>
+    git.checkout(request.body.projectName, request.body.branch)
+  );
 }

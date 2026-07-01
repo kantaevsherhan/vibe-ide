@@ -12,6 +12,10 @@ export const useFilesStore = defineStore('files', () => {
   const childrenByPath = ref<Record<string, FileNode[]>>({});
   const folderLimits = ref<Record<string, FolderChildrenResponse>>({});
   const ignoredMessage = ref<string | null>(null);
+  const searchQuery = ref('');
+  const searchResults = ref<FileNode[]>([]);
+  const searching = ref(false);
+  const selectedPath = ref<string | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
@@ -29,6 +33,9 @@ export const useFilesStore = defineStore('files', () => {
     childrenByPath.value = {};
     folderLimits.value = {};
     ignoredMessage.value = null;
+    searchQuery.value = '';
+    searchResults.value = [];
+    selectedPath.value = null;
   }
 
   async function refresh() {
@@ -107,6 +114,37 @@ export const useFilesStore = defineStore('files', () => {
     await refresh();
   }
 
+  async function rename(from: string, to: string) {
+    if (!projectName.value) return;
+    await filesApi.rename(projectName.value, from, to);
+    await refresh();
+  }
+
+  async function duplicate(path: string) {
+    if (!projectName.value) return;
+    const parts = path.split('/');
+    const name = parts.pop() ?? path;
+    const folder = parts.join('/');
+    const dot = name.lastIndexOf('.');
+    const copyName = dot > 0 ? `${name.slice(0, dot)} copy${name.slice(dot)}` : `${name} copy`;
+    const target = folder ? `${folder}/${copyName}` : copyName;
+    await filesApi.duplicate(projectName.value, path, target);
+    await refresh();
+  }
+
+  async function search() {
+    if (!projectName.value || !searchQuery.value.trim()) {
+      searchResults.value = [];
+      return;
+    }
+    searching.value = true;
+    try {
+      searchResults.value = (await filesApi.search(projectName.value, searchQuery.value)).results;
+    } finally {
+      searching.value = false;
+    }
+  }
+
   return {
     tree,
     projectName,
@@ -116,6 +154,10 @@ export const useFilesStore = defineStore('files', () => {
     childrenByPath,
     folderLimits,
     ignoredMessage,
+    searchQuery,
+    searchResults,
+    searching,
+    selectedPath,
     loading,
     error,
     setProject,
@@ -124,6 +166,9 @@ export const useFilesStore = defineStore('files', () => {
     toggleFolder,
     createFile,
     createFolder,
-    remove
+    remove,
+    rename,
+    duplicate,
+    search
   };
 });

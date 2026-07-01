@@ -8,7 +8,7 @@ const defaultAgents: AgentConfig[] = [
     id: 'codex',
     name: 'Codex',
     command: 'codex',
-    args: ['exec', '--sandbox', 'workspace-write', '--ask-for-approval', 'never', '{prompt}'],
+    args: ['exec', '--sandbox', 'workspace-write', '{prompt}'],
     inputMode: 'argument',
     enabled: true
   },
@@ -51,7 +51,8 @@ export class AgentsConfigService {
           agent.id === 'codex' &&
           (!agent.args ||
             agent.args.length === 0 ||
-            (agent.args.length === 2 && agent.args[0] === 'exec' && agent.args[1] === '{prompt}'));
+            (agent.args.length === 2 && agent.args[0] === 'exec' && agent.args[1] === '{prompt}') ||
+            agent.args.includes('--ask-for-approval'));
         return {
           ...agent,
           args: needsKnownAgentArgsUpgrade ? (fallback?.args ?? []) : agent.args && agent.args.length > 0 ? agent.args : (fallback?.args ?? []),

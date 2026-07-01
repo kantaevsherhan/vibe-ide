@@ -20,6 +20,7 @@ import { useHealthStore } from '../stores/health.store';
 import { useNotesStore } from '../stores/notes.store';
 import { useTerminalStore } from '../stores/terminal.store';
 import { useEditorStore } from '../stores/editor.store';
+import SettingsModal from '../components/settings/SettingsModal.vue';
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -33,6 +34,7 @@ const drawerOpen = ref(false);
 const isFullscreen = ref(false);
 const isMobile = ref(false);
 const deferredInstallPrompt = ref<BeforeInstallPromptEvent | null>(null);
+const settingsOpen = ref(false);
 const files = useFilesStore();
 const git = useGitStore();
 const agents = useAgentsStore();
@@ -111,6 +113,13 @@ function syncMobileState() {
   if (!isMobile.value) drawerOpen.value = false;
 }
 
+function handleGlobalKeys(event: KeyboardEvent) {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'w') {
+    event.preventDefault();
+    if (editor.activePath) editor.close(editor.activePath);
+  }
+}
+
 onMounted(async () => {
   files.setProject(projectName.value);
   git.setProject(projectName.value);
@@ -129,12 +138,14 @@ onMounted(async () => {
   mobileMediaQuery.addEventListener('change', syncMobileState);
   document.addEventListener('fullscreenchange', syncFullscreenState);
   window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
+  document.addEventListener('keydown', handleGlobalKeys, true);
 });
 
 onBeforeUnmount(() => {
   mobileMediaQuery?.removeEventListener('change', syncMobileState);
   document.removeEventListener('fullscreenchange', syncFullscreenState);
   window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt);
+  document.removeEventListener('keydown', handleGlobalKeys, true);
 });
 </script>
 
@@ -169,10 +180,10 @@ onBeforeUnmount(() => {
       </button>
     </header>
 
-    <ActivityBar v-if="!isMobile" v-model="activeView" class="desktop-activity" />
+    <ActivityBar v-if="!isMobile" v-model="activeView" class="desktop-activity" @settings="settingsOpen = true" />
 
     <aside v-if="!isMobile" class="desktop-sidebar min-w-0 border-r border-ide-border bg-ide-sidebar">
-      <FileExplorer v-if="activeView === 'files'" />
+      <FileExplorer v-if="activeView === 'files'" :active="activeView === 'files'" />
       <GitPanel v-else-if="activeView === 'git'" />
       <TerminalPanel v-else-if="activeView === 'terminal'" />
       <NotesPanel v-else-if="activeView === 'notes'" />
@@ -227,7 +238,7 @@ onBeforeUnmount(() => {
           <X :size="20" />
         </button>
       </header>
-      <FileExplorer v-if="activeView === 'files'" />
+      <FileExplorer v-if="activeView === 'files'" :active="activeView === 'files'" />
       <GitPanel v-else-if="activeView === 'git'" />
       <TerminalPanel v-else-if="activeView === 'terminal'" />
       <NotesPanel v-else-if="activeView === 'notes'" />
@@ -252,5 +263,6 @@ onBeforeUnmount(() => {
     </nav>
 
     <div v-if="sidebarResize.isResizing.value || terminalResize.isResizing.value" class="resize-shield" />
+    <SettingsModal :open="settingsOpen" @close="settingsOpen = false" />
   </div>
 </template>

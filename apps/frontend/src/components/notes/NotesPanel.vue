@@ -4,22 +4,25 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useEditorStore } from '../../stores/editor.store';
 import { useNotesStore } from '../../stores/notes.store';
 import type { NoteNode } from '../../types/notes';
+import ContextMenu, { type ContextMenuItem } from '../ui/ContextMenu.vue';
+import ConfirmModal from '../ui/ConfirmModal.vue';
+import InputModal from '../ui/InputModal.vue';
 import NotesTreeNode from './NotesTreeNode.vue';
 
 const notes = useNotesStore();
 const editor = useEditorStore();
 const menu = ref<{ x: number; y: number; node: NoteNode } | null>(null);
+const inputModal = ref<{ title: string; label: string; placeholder: string; initialValue?: string; confirmLabel: string; action: (value: string) => Promise<void> } | null>(null);
+const deleteTarget = ref<NoteNode | null>(null);
 let searchTimer: number | undefined;
 
 onMounted(() => {
   void notes.refresh();
   window.addEventListener('keydown', handleKeys);
-  window.addEventListener('click', closeMenu);
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleKeys);
-  window.removeEventListener('click', closeMenu);
   if (searchTimer) window.clearTimeout(searchTimer);
 });
 
@@ -47,33 +50,59 @@ function parentFor(node?: NoteNode) {
 
 async function createNote(baseNode?: NoteNode) {
   const folder = parentFor(baseNode);
-  const name = window.prompt('New note name', folder ? `${folder}/Untitled.md` : 'Untitled.md');
-  if (!name) return;
-  await notes.createNote(name, '# Untitled\n');
-  await editor.openNote(name.toLowerCase().endsWith('.md') ? name : `${name}.md`);
+  inputModal.value = {
+    title: 'Create Note',
+    label: 'Note name',
+    placeholder: 'Enter note name',
+    initialValue: folder ? `${folder}/Untitled.md` : 'Untitled.md',
+    confirmLabel: 'Create',
+    action: async (name) => {
+      await notes.createNote(name, '# Untitled\n');
+      await editor.openNote(name.toLowerCase().endsWith('.md') ? name : `${name}.md`);
+    }
+  };
 }
 
 async function createFolder(baseNode?: NoteNode) {
   const folder = parentFor(baseNode);
-  const name = window.prompt('New folder name', folder ? `${folder}/New Folder` : 'New Folder');
-  if (!name) return;
-  await notes.createFolder(name);
+  inputModal.value = {
+    title: 'Create Folder',
+    label: 'Folder name',
+    placeholder: 'Enter folder name',
+    initialValue: folder ? `${folder}/New Folder` : 'New Folder',
+    confirmLabel: 'Create',
+    action: async (name) => notes.createFolder(name)
+  };
 }
 
 async function rename(node: NoteNode) {
-  const next = window.prompt('Rename', node.path);
-  if (!next || next === node.path) return;
-  await notes.rename(node.path, next);
-  if (editor.activeFile?.kind === 'note' && editor.activeFile.path === node.path) {
-    editor.close(editor.activeFile.id);
-    await editor.openNote(next.toLowerCase().endsWith('.md') || node.type === 'directory' ? next : `${next}.md`);
-  }
+  inputModal.value = {
+    title: 'Rename',
+    label: 'New name',
+    placeholder: 'Enter new name',
+    initialValue: node.path,
+    confirmLabel: 'Rename',
+    action: async (next) => {
+      if (next === node.path) return;
+      await notes.rename(node.path, next);
+      if (editor.activeFile?.kind === 'note' && editor.activeFile.path === node.path) {
+        editor.close(editor.activeFile.id);
+        await editor.openNote(next.toLowerCase().endsWith('.md') || node.type === 'directory' ? next : `${next}.md`);
+      }
+    }
+  };
 }
 
 async function remove(node: NoteNode) {
-  if (!window.confirm(`Delete ${node.path}?`)) return;
+  deleteTarget.value = node;
+}
+
+async function confirmDelete() {
+  if (!deleteTarget.value) return;
+  const node = deleteTarget.value;
   await notes.remove(node.path);
   if (editor.activeFile?.kind === 'note' && editor.activeFile.path === node.path) editor.close(editor.activeFile.id);
+  deleteTarget.value = null;
 }
 
 async function duplicate(node: NoteNode) {
@@ -103,6 +132,35 @@ function closeMenu() {
   menu.value = null;
 }
 
+async function confirmInput(value: string) {
+  if (!inputModal.value) return;
+  await inputModal.value.action(value);
+  inputModal.value = null;
+}
+
+function menuItems(node: NoteNode): ContextMenuItem[] {
+  if (!node.path) {
+    return [
+      { label: 'New Note', action: () => void createNote(node) },
+      { label: 'New Folder', action: () => void createFolder(node) }
+    ];
+  }
+  const common = [
+    { label: 'Rename', action: () => void rename(node) },
+    { label: 'Delete', danger: true, action: () => void remove(node) },
+    { label: 'Duplicate', action: () => void duplicate(node) },
+    { label: 'Copy Path', action: () => void copyPath(node) }
+  ];
+  if (node.type === 'file') {
+    return [{ label: 'Open', action: () => void editor.openNote(node.path) }, ...common];
+  }
+  return [
+    { label: 'New Note', action: () => void createNote(node) },
+    { label: 'New Folder', action: () => void createFolder(node) },
+    ...common
+  ];
+}
+
 function handleKeys(event: KeyboardEvent) {
   if (!event.ctrlKey && !event.metaKey && event.key !== 'F2' && event.key !== 'Delete') return;
   const activeNote = editor.activeFile?.kind === 'note' ? editor.activeFile.path : null;
@@ -122,6 +180,13 @@ function handleKeys(event: KeyboardEvent) {
     event.preventDefault();
     void remove({ name: activeNote.split('/').pop() ?? activeNote, path: activeNote, type: 'file' });
   }
+}
+
+function deleteMessage() {
+  const target = deleteTarget.value;
+  if (!target) return '';
+  const kind = target.type === 'directory' ? 'папку' : 'заметку';
+  return `Вы действительно хотите удалить ${kind} "${target.path}"? Она исчезнет навсегда.`;
 }
 </script>
 
@@ -182,18 +247,25 @@ function handleKeys(event: KeyboardEvent) {
       </template>
     </div>
 
-    <div
-      v-if="menu"
-      class="fixed z-[1200] w-40 border border-ide-border bg-ide-panel py-1 text-xs shadow-xl"
-      :style="{ left: `${menu.x}px`, top: `${menu.y}px` }"
-      @click.stop
-    >
-      <button class="block w-full px-3 py-1.5 text-left hover:bg-white/10" @click="createNote(menu.node); closeMenu()">New Note</button>
-      <button class="block w-full px-3 py-1.5 text-left hover:bg-white/10" @click="createFolder(menu.node); closeMenu()">New Folder</button>
-      <button v-if="menu.node.path" class="block w-full px-3 py-1.5 text-left hover:bg-white/10" @click="rename(menu.node); closeMenu()">Rename</button>
-      <button v-if="menu.node.path" class="block w-full px-3 py-1.5 text-left hover:bg-white/10" @click="remove(menu.node); closeMenu()">Delete</button>
-      <button v-if="menu.node.path" class="block w-full px-3 py-1.5 text-left hover:bg-white/10" @click="duplicate(menu.node); closeMenu()">Duplicate</button>
-      <button v-if="menu.node.path" class="block w-full px-3 py-1.5 text-left hover:bg-white/10" @click="copyPath(menu.node); closeMenu()">Copy Path</button>
-    </div>
+    <ContextMenu v-if="menu" :x="menu.x" :y="menu.y" :items="menuItems(menu.node)" @close="closeMenu" />
+    <InputModal
+      :open="Boolean(inputModal)"
+      :title="inputModal?.title ?? ''"
+      :label="inputModal?.label ?? ''"
+      :placeholder="inputModal?.placeholder"
+      :initial-value="inputModal?.initialValue"
+      :confirm-label="inputModal?.confirmLabel ?? 'OK'"
+      @close="inputModal = null"
+      @confirm="confirmInput"
+    />
+    <ConfirmModal
+      :open="Boolean(deleteTarget)"
+      title="Удалить"
+      :message="deleteMessage()"
+      confirm-label="Удалить"
+      danger
+      @close="deleteTarget = null"
+      @confirm="confirmDelete"
+    />
   </section>
 </template>

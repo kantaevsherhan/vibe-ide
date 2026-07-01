@@ -40,5 +40,20 @@ export const filesApi = {
         method: 'DELETE'
       }
     );
+  },
+  async rename(projectName: string, from: string, to: string) {
+    return apiRequest<{ ok: true }>('/api/files/rename', {
+      method: 'PUT',
+      body: JSON.stringify({ projectName, from, to })
+    });
+  },
+  async duplicate(projectName: string, from: string, to: string) {
+    return apiRequest<{ ok: true }>('/api/files/duplicate', {
+      method: 'POST',
+      body: JSON.stringify({ projectName, from, to })
+    });
+  },
+  async search(projectName: string, query: string) {
+    return apiRequest<{ results: FileNode[] }>(`/api/files/search?projectName=${encodeURIComponent(projectName)}&query=${encodeURIComponent(query)}`);
   }
 };

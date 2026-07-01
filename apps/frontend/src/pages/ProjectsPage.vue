@@ -1,50 +1,43 @@
 <script setup lang="ts">
 import { DownloadCloud, FolderPlus, LogOut } from '@lucide/vue';
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth.store';
 import { useProjectsStore } from '../stores/projects.store';
 import { useSystemStore } from '../stores/system.store';
 import ProjectCard from '../components/projects/ProjectCard.vue';
 import DeleteProjectModal from '../components/projects/DeleteProjectModal.vue';
-import type { Project } from '../services/projects.api';
+import CreateProjectModal from '../components/projects/CreateProjectModal.vue';
+import type { CreateProjectInput, Project } from '../services/projects.api';
 
 const projects = useProjectsStore();
 const system = useSystemStore();
 const auth = useAuthStore();
 const router = useRouter();
 const creating = ref(false);
+const creatingProject = ref(false);
 const projectToDelete = ref<Project | null>(null);
-const form = reactive({
-  name: '',
-  folderName: '',
-  description: ''
-});
+const searchQuery = ref('');
 
 onMounted(() => {
   void projects.loadProjects();
 });
 
-function normalizeFolderName() {
-  form.folderName = form.folderName
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9_-]/g, '');
-}
+const filteredProjects = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase();
+  if (!query) return projects.projects;
+  return projects.projects.filter((project) => project.name.toLowerCase().includes(query));
+});
 
-async function submit() {
-  normalizeFolderName();
-  const project = await projects.createProject({
-    name: form.name,
-    folderName: form.folderName,
-    description: form.description
-  });
-  form.name = '';
-  form.folderName = '';
-  form.description = '';
-  creating.value = false;
-  await projects.openProject(project.folderName);
+async function createProject(input: CreateProjectInput) {
+  creatingProject.value = true;
+  try {
+    const project = await projects.createProject(input);
+    creating.value = false;
+    await projects.openProject(project.folderName);
+  } finally {
+    creatingProject.value = false;
+  }
 }
 
 async function logout() {
@@ -71,9 +64,9 @@ async function confirmDeleteProject(folderName: string) {
             <DownloadCloud :size="16" />
             {{ system.buttonLabel }}
           </button>
-          <button class="desktop-action-button h-9 gap-2 px-3" @click="creating = !creating">
+          <button class="desktop-action-button h-9 gap-2 px-3" @click="creating = true">
             <FolderPlus :size="16" />
-            Create Project
+            Add Project
           </button>
           <button class="desktop-action-button h-9 gap-2 px-3" @click="logout">
             <LogOut :size="16" />
@@ -92,27 +85,14 @@ async function confirmDeleteProject(folderName: string) {
         <pre class="max-h-40 overflow-auto whitespace-pre-wrap bg-[#181818] p-3 font-mono text-[11px] leading-5 text-ide-text thin-scrollbar">{{ system.logs.join('\n') }}</pre>
       </section>
 
-      <form v-if="creating" class="grid gap-3 border border-ide-border bg-ide-sidebar p-4 md:grid-cols-[1fr_1fr] md:items-end" @submit.prevent="submit">
-        <label class="block">
-          <span class="mb-1 block text-xs uppercase tracking-wide text-ide-muted">Project name</span>
-          <input v-model="form.name" class="h-9 w-full border border-ide-border bg-ide-panel px-3 outline-none focus:border-ide-accent" required />
-        </label>
-        <label class="block">
-          <span class="mb-1 block text-xs uppercase tracking-wide text-ide-muted">Folder name</span>
-          <input
-            v-model="form.folderName"
-            class="h-9 w-full border border-ide-border bg-ide-panel px-3 font-mono outline-none focus:border-ide-accent"
-            pattern="[A-Za-z0-9_-]+"
-            required
-            @blur="normalizeFolderName"
-          />
-        </label>
-        <label class="block md:col-span-2">
-          <span class="mb-1 block text-xs uppercase tracking-wide text-ide-muted">Description</span>
-          <input v-model="form.description" class="h-9 w-full border border-ide-border bg-ide-panel px-3 outline-none focus:border-ide-accent" />
-        </label>
-        <button class="h-9 bg-ide-accent px-4 font-medium text-white hover:bg-[#0b86d1] md:col-span-2">Create Project</button>
-      </form>
+      <label class="block">
+        <span class="mb-1 block text-xs uppercase tracking-wide text-ide-muted">Search Projects</span>
+        <input
+          v-model="searchQuery"
+          class="h-9 w-full border border-ide-border bg-ide-panel px-3 outline-none focus:border-ide-accent"
+          placeholder="Search Projects..."
+        />
+      </label>
 
       <p v-if="projects.error" class="border border-red-500/40 bg-red-500/10 p-3 text-red-200">{{ projects.error }}</p>
 
@@ -124,9 +104,13 @@ async function confirmDeleteProject(folderName: string) {
         </div>
       </section>
 
+      <section v-else-if="filteredProjects.length === 0" class="grid min-h-56 place-items-center border border-dashed border-ide-border bg-ide-sidebar/60 text-center text-ide-muted">
+        No projects match your search.
+      </section>
+
       <section v-else class="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
         <ProjectCard
-          v-for="project in projects.projects"
+          v-for="project in filteredProjects"
           :key="project.folderName"
           :project="project"
           @open="projects.openProject"
@@ -138,6 +122,13 @@ async function confirmDeleteProject(folderName: string) {
       :project="projectToDelete"
       @close="projectToDelete = null"
       @confirm="confirmDeleteProject"
+    />
+    <CreateProjectModal
+      :open="creating"
+      :loading="creatingProject"
+      :error="projects.error"
+      @close="creating = false"
+      @create="createProject"
     />
   </main>
 </template>

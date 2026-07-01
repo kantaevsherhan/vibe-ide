@@ -23,9 +23,11 @@ export type Project = {
 };
 
 export type CreateProjectInput = {
+  source?: 'blank' | 'git';
   name: string;
   folderName: string;
   description?: string;
+  repositoryUrl?: string;
 };
 
 export const projectsApi = {

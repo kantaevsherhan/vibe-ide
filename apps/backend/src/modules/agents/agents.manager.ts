@@ -2,6 +2,7 @@ import os from 'node:os';
 import pty, { type IPty } from 'node-pty';
 import { execa } from 'execa';
 import type { AgentConfig, AgentSession, AgentTask, AgentWsMessage } from './agents.types.js';
+import { adapterFor } from './agent-adapters.js';
 import type { NotificationsService } from './notifications.service.js';
 import type { TaskQueueService } from './task-queue.service.js';
 
@@ -127,10 +128,10 @@ export class AgentsManager {
     const context = await this.queue.readContext(projectPath);
     const finalPrompt = this.queue.buildPrompt(context, task);
     const promptFile = await this.queue.writePromptFile(projectPath, task.id, finalPrompt);
-    const spawnArgs = this.buildArgs(agent, finalPrompt, promptFile);
+    const launch = adapterFor(agent).build(agent, finalPrompt, promptFile);
     let ptyProcess: IPty;
     try {
-      ptyProcess = pty.spawn(this.resolveCommand(agent), spawnArgs, {
+      ptyProcess = pty.spawn(this.resolveCommand({ ...agent, command: launch.command }), launch.args, {
         name: 'xterm-color',
         cols: 100,
         rows: 28,
@@ -155,7 +156,7 @@ export class AgentsManager {
     this.active.set(task.id, { taskId: task.id, projectName, agentId: agent.id, pty: ptyProcess, timeout });
     this.broadcast(projectName, { type: 'agent_status', session });
 
-    if ((agent.inputMode ?? 'stdin') === 'stdin') {
+    if ((launch.inputMode ?? 'stdin') === 'stdin') {
       ptyProcess.write(`${finalPrompt}\n`);
     }
 
@@ -262,17 +263,6 @@ export class AgentsManager {
 
   private resolveCommand(agent: AgentConfig) {
     return this.commandPathCache.get(this.cacheKey(agent)) ?? agent.command;
-  }
-
-  private buildArgs(agent: AgentConfig, prompt: string, promptFile: string) {
-    const mode = agent.inputMode ?? 'stdin';
-    const args = agent.args.map((arg) => arg.replaceAll('{prompt}', prompt).replaceAll('{promptFile}', promptFile));
-    const hasPromptPlaceholder = agent.args.some((arg) => arg.includes('{prompt}'));
-    const hasPromptFilePlaceholder = agent.args.some((arg) => arg.includes('{promptFile}'));
-
-    if (mode === 'argument' && !hasPromptPlaceholder) return [...args, prompt];
-    if (mode === 'file' && !hasPromptFilePlaceholder) return [...args, promptFile];
-    return args;
   }
 
   private cacheKey(agent: AgentConfig) {

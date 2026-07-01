@@ -5,6 +5,11 @@ import type { AgentListItem, AgentSession } from '../../types/agents';
 defineProps<{
   agents: AgentListItem[];
   sessions: AgentSession[];
+  selectedAgentId: string;
+}>();
+
+defineEmits<{
+  select: [agentId: string];
 }>();
 
 const statusClass = {
@@ -29,7 +34,7 @@ const statusTextClass = {
   not_installed: 'text-ide-muted'
 };
 
-const expectedAgents = ['ChatGPT', 'Claude Code', 'Gemini', 'Codex', 'Custom CLI'];
+const expectedAgents = ['Claude Code', 'Gemini', 'Codex', 'Custom CLI'];
 
 function displayStatus(agent: AgentListItem, sessions: AgentSession[]) {
   if (!agent.installed || !agent.enabled) return 'not_installed';
@@ -44,8 +49,9 @@ function formatStatus(status: string) {
 
 function compactAgents(agents: AgentListItem[]) {
   const byName = new Map(agents.map((agent) => [agent.name.toLowerCase(), agent]));
+  const custom = agents.find((agent) => agent.id === 'custom');
   return expectedAgents.map((name) => {
-    const found = byName.get(name.toLowerCase());
+    const found = name === 'Custom CLI' ? custom : byName.get(name.toLowerCase());
     return (
       found ?? {
         id: name.toLowerCase().replaceAll(' ', '-'),
@@ -59,16 +65,23 @@ function compactAgents(agents: AgentListItem[]) {
     );
   });
 }
+
+function canSelect(agent: AgentListItem) {
+  return agent.enabled && agent.installed;
+}
 </script>
 
 <template>
   <div class="border-b border-ide-border px-3 py-2">
     <div class="mb-1.5 text-[11px] uppercase tracking-wide text-ide-muted">AI Agents</div>
     <div class="space-y-1">
-      <div
+      <button
         v-for="agent in compactAgents(agents)"
         :key="agent.id"
-        class="flex min-h-9 items-center gap-2 rounded px-1.5 py-1 hover:bg-white/5"
+        class="flex min-h-9 w-full items-center gap-2 rounded px-1.5 py-1 text-left hover:bg-white/5"
+        :class="{ 'bg-white/5 ring-1 ring-ide-accent/50': selectedAgentId === agent.id, 'cursor-not-allowed opacity-60': !canSelect(agent) }"
+        :disabled="!canSelect(agent)"
+        @click="$emit('select', agent.id)"
       >
         <Bot class="shrink-0 text-ide-muted" :size="15" :stroke-width="1.8" />
         <div class="min-w-0 flex-1">
@@ -78,7 +91,7 @@ function compactAgents(agents: AgentListItem[]) {
           </div>
         </div>
         <span class="h-2 w-2 shrink-0 rounded-full" :class="statusClass[displayStatus(agent, sessions)]" />
-      </div>
+      </button>
     </div>
   </div>
 </template>

@@ -8,4 +8,10 @@ export type GitStatusResponse = {
   isRepository: boolean;
   message?: string;
   files: GitFileStatus[];
+  branch?: string | null;
+};
+
+export type GitBranchesResponse = {
+  current: string | null;
+  branches: string[];
 };

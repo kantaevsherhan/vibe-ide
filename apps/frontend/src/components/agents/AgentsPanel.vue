@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Send } from '@lucide/vue';
+import { Send, Sparkles } from '@lucide/vue';
 import { computed, onMounted, ref } from 'vue';
 import { useResizable } from '../../composables/useResizable';
 import { useAgentsStore } from '../../stores/agents.store';
@@ -18,6 +18,7 @@ const logsResize = useResizable({
 });
 
 const enabledAgents = computed(() => agents.agents.filter((agent) => agent.enabled));
+const selectedAgent = computed(() => agents.agents.find((agent) => agent.id === selectedAgentId.value) ?? null);
 const selectedLog = computed(() => {
   const id = agents.selectedTaskId;
   return id ? (agents.logs[id] ?? '') : '';
@@ -33,6 +34,12 @@ async function sendTask() {
   await agents.sendTask(selectedAgentId.value, prompt.value);
   prompt.value = '';
 }
+
+function selectAgent(agentId: string) {
+  const agent = agents.agents.find((item) => item.id === agentId);
+  if (!agent?.enabled || !agent.installed) return;
+  selectedAgentId.value = agentId;
+}
 </script>
 
 <template>
@@ -42,19 +49,24 @@ async function sendTask() {
       <button class="rounded px-2 py-1 hover:bg-white/10 hover:text-ide-text" @click="agents.refresh">Refresh</button>
     </header>
     <p v-if="agents.error" class="mx-3 mb-2 border border-red-500/40 bg-red-500/10 p-2 text-xs text-red-200">{{ agents.error }}</p>
-    <AgentStatusPanel :agents="agents.agents" :sessions="agents.sessions" />
+    <AgentStatusPanel :agents="agents.agents" :sessions="agents.sessions" :selected-agent-id="selectedAgentId" @select="selectAgent" />
     <form class="grid gap-2 border-b border-ide-border p-3" @submit.prevent="sendTask">
-      <select v-model="selectedAgentId" class="h-8 border border-ide-border bg-ide-panel px-2 text-xs outline-none focus:border-ide-accent">
-        <option v-for="agent in enabledAgents" :key="agent.id" :value="agent.id">
-          {{ agent.name }}{{ agent.installed ? '' : ' (not installed)' }}
-        </option>
-      </select>
+      <div class="flex items-center justify-between gap-2">
+        <div>
+          <div class="text-[11px] uppercase tracking-wide text-ide-muted">Task Composer</div>
+          <div class="truncate text-xs text-ide-text">{{ selectedAgent?.name ?? 'Select an agent' }}</div>
+        </div>
+        <Sparkles class="text-ide-accent" :size="16" />
+      </div>
       <textarea
         v-model="prompt"
-        class="min-h-16 resize-none border border-ide-border bg-ide-panel p-2 text-xs outline-none focus:border-ide-accent"
-        placeholder="Send a task to the selected agent..."
+        class="min-h-24 resize-none border border-ide-border bg-ide-panel p-2 text-xs leading-5 outline-none focus:border-ide-accent"
+        placeholder="Describe the task for the selected agent..."
       />
-      <button class="inline-flex h-8 items-center justify-center gap-2 bg-ide-accent px-3 text-xs font-medium text-white hover:bg-[#1188d8]">
+      <button
+        class="inline-flex h-8 items-center justify-center gap-2 bg-ide-accent px-3 text-xs font-medium text-white hover:bg-[#1188d8] disabled:cursor-not-allowed disabled:opacity-50"
+        :disabled="!selectedAgentId || !prompt.trim()"
+      >
         <Send :size="14" />
         Send Task
       </button>
@@ -75,6 +87,7 @@ async function sendTask() {
     />
     <AgentLogView
       :task-id="agents.selectedTaskId"
+      :task="agents.selectedTask"
       :log="selectedLog"
       class="shrink-0"
       :style="{ height: `${logsResize.height.value}px` }"

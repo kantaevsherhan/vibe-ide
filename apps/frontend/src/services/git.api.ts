@@ -1,5 +1,5 @@
 import { apiRequest } from './api';
-import type { GitStatusResponse } from '../types/git';
+import type { GitBranchesResponse, GitStatusResponse } from '../types/git';
 
 export const gitApi = {
   async status(projectName: string) {
@@ -15,5 +15,14 @@ export const gitApi = {
     return apiRequest<{ diff: string }>(
       `/api/git/diff?projectName=${encodeURIComponent(projectName)}&path=${encodeURIComponent(path)}`
     );
+  },
+  async branches(projectName: string) {
+    return apiRequest<GitBranchesResponse>(`/api/git/branches?projectName=${encodeURIComponent(projectName)}`);
+  },
+  async checkout(projectName: string, branch: string) {
+    return apiRequest<GitBranchesResponse>('/api/git/checkout', {
+      method: 'POST',
+      body: JSON.stringify({ projectName, branch })
+    });
   }
 };

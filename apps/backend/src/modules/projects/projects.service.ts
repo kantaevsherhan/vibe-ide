@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { execa } from 'execa';
 import { safePath } from '../security/safe-path.js';
 import type { WorkspaceService } from '../workspace/workspace.service.js';
 import type { CreateProjectInput, Project, ProjectMetadata } from './projects.types.js';
@@ -11,6 +12,7 @@ export type ProjectAgentsHealthProvider = (projectName: string) => Promise<{ run
 
 const projectNamePattern = /^[A-Za-z0-9_-]+$/;
 const vibeIdeGitignore = ['agents/', 'sessions/', 'logs/', 'tasks.json', 'state.json'].join('\n') + '\n';
+const scpLikeGitUrlPattern = /^[A-Za-z0-9_.-]+@[A-Za-z0-9_.-]+:[A-Za-z0-9_.~/-]+(?:\.git)?$/;
 
 export class ProjectsService {
   private terminalCountProvider: TerminalCountProvider = () => 0;
@@ -79,6 +81,10 @@ export class ProjectsService {
 
   async create(input: CreateProjectInput): Promise<Project> {
     this.assertProjectName(input.folderName);
+    const source = input.source ?? 'blank';
+    if (source !== 'blank' && source !== 'git') {
+      throw Object.assign(new Error('Invalid project source.'), { statusCode: 400 });
+    }
     const now = new Date().toISOString();
     const projectPath = this.projectPath(input.folderName);
     const existing = await fs.stat(projectPath).catch(() => null);
@@ -94,9 +100,13 @@ export class ProjectsService {
       updatedAt: now
     };
 
-    await fs.mkdir(this.metadataDir(projectPath), { recursive: true });
-    await this.ensureVibeIdeGitignore(projectPath);
-    await fs.writeFile(this.metadataPath(projectPath), `${JSON.stringify(metadata, null, 2)}\n`, 'utf8');
+    if (source === 'git') {
+      await this.cloneRepository(input.repositoryUrl, projectPath);
+    } else {
+      await fs.mkdir(projectPath, { recursive: true });
+    }
+
+    await this.writeMetadata(projectPath, metadata);
     return this.projectFromMetadata(projectNamePattern.test(input.folderName) ? input.folderName : metadata.folderName, projectPath, metadata);
   }
 
@@ -179,10 +189,52 @@ export class ProjectsService {
       createdAt: now,
       updatedAt: now
     };
+    await this.writeMetadata(projectPath, metadata);
+    return metadata;
+  }
+
+  private async writeMetadata(projectPath: string, metadata: ProjectMetadata) {
     await fs.mkdir(this.metadataDir(projectPath), { recursive: true });
     await this.ensureVibeIdeGitignore(projectPath);
     await fs.writeFile(this.metadataPath(projectPath), `${JSON.stringify(metadata, null, 2)}\n`, 'utf8');
-    return metadata;
+  }
+
+  private async cloneRepository(repositoryUrl: string | undefined, projectPath: string) {
+    const repository = repositoryUrl?.trim();
+    if (!repository || !this.isValidRepositoryUrl(repository)) {
+      throw Object.assign(new Error('Invalid Git repository URL.'), { statusCode: 400 });
+    }
+
+    try {
+      const result = await execa('git', ['clone', repository, projectPath], {
+        cwd: this.workspace.root,
+        reject: false,
+        env: {
+          ...process.env,
+          GIT_CEILING_DIRECTORIES: path.dirname(this.workspace.root)
+        }
+      });
+
+      if (result.exitCode !== 0) {
+        throw Object.assign(new Error(result.stderr || 'Failed to clone repository.'), { statusCode: 400 });
+      }
+    } catch (error) {
+      await fs.rm(projectPath, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+      if (error instanceof Error && 'statusCode' in error) throw error;
+      throw Object.assign(new Error('Failed to clone repository.'), { statusCode: 400, cause: error });
+    }
+  }
+
+  private isValidRepositoryUrl(repositoryUrl: string) {
+    if (/[\s\x00-\x1F]/.test(repositoryUrl)) return false;
+    if (scpLikeGitUrlPattern.test(repositoryUrl)) return true;
+
+    try {
+      const parsed = new URL(repositoryUrl);
+      return ['http:', 'https:', 'ssh:', 'git:'].includes(parsed.protocol) && Boolean(parsed.hostname);
+    } catch {
+      return false;
+    }
   }
 
   private metadataDir(projectPath: string) {
