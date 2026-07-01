@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { X } from '@lucide/vue';
+import { Bot, X } from '@lucide/vue';
 import { useEditorStore } from '../../stores/editor.store';
 
 const editor = useEditorStore();
@@ -14,6 +14,7 @@ const editor = useEditorStore();
       :class="{ 'bg-ide-main text-ide-text': editor.activePath === file.id }"
       @click="editor.activePath = file.id"
     >
+      <Bot v-if="file.kind === 'agent'" class="shrink-0 text-ide-accent" :size="14" />
       <span class="truncate">{{ file.name }}</span>
       <span v-if="editor.isDirty(file.id)" class="h-1.5 w-1.5 rounded-full bg-ide-accent" />
       <span

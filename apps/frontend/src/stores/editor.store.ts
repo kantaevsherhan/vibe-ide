@@ -16,7 +16,12 @@ export const useEditorStore = defineStore('editor', () => {
   const saving = ref(false);
   const blockedFile = ref<{ path: string; title: string; message: string; canForceOpen: boolean } | null>(null);
 
-  const activeFile = computed(() => openFiles.value.find((file) => file.id === activePath.value) ?? null);
+  const activeTab = computed(() => openFiles.value.find((file) => file.id === activePath.value) ?? null);
+  const activeFile = computed(() => {
+    const tab = activeTab.value;
+    return tab?.kind === 'file' || tab?.kind === 'note' ? tab : null;
+  });
+  const activeAgentId = computed(() => activeTab.value?.kind === 'agent' ? activeTab.value.agentId ?? null : null);
 
   function setProject(nextProjectName: string) {
     if (projectName.value === nextProjectName) return;
@@ -120,15 +125,26 @@ export const useEditorStore = defineStore('editor', () => {
     activeFile.value.content = content;
   }
 
+  function openAgentTab(agentId: string, title: string) {
+    const id = `agent:${agentId}`;
+    const existing = openFiles.value.find((file) => file.id === id);
+    if (!existing) {
+      openFiles.value.push({ id, name: title, kind: 'agent', agentId });
+    }
+    activePath.value = id;
+    blockedFile.value = null;
+  }
+
   async function saveActive() {
     if (!activeFile.value) return;
     saving.value = true;
     try {
       if (!projectName.value) return;
+      if (!activeFile.value.path) return;
       if (activeFile.value.kind === 'note') {
-        await notesApi.write(projectName.value, activeFile.value.path, activeFile.value.content);
+        await notesApi.write(projectName.value, activeFile.value.path, activeFile.value.content ?? '');
       } else {
-        await filesApi.write(projectName.value, activeFile.value.path, activeFile.value.content);
+        await filesApi.write(projectName.value, activeFile.value.path, activeFile.value.content ?? '');
       }
       activeFile.value.savedContent = activeFile.value.content;
     } finally {
@@ -138,13 +154,15 @@ export const useEditorStore = defineStore('editor', () => {
 
   function isDirty(path: string) {
     const file = openFiles.value.find((item) => item.id === path);
-    return Boolean(file && file.content !== file.savedContent);
+    return Boolean((file?.kind === 'file' || file?.kind === 'note') && file.content !== file.savedContent);
   }
 
   return {
     openFiles,
     activePath,
+    activeTab,
     activeFile,
+    activeAgentId,
     projectName,
     saving,
     blockedFile,
@@ -152,6 +170,7 @@ export const useEditorStore = defineStore('editor', () => {
     open,
     openAnyway,
     openNote,
+    openAgentTab,
     close,
     updateContent,
     saveActive,

@@ -256,7 +256,7 @@ function deleteMessage() {
           :loading-folders="files.loadingFolders"
           :children-by-path="files.childrenByPath"
           :folder-limits="files.folderLimits"
-          :active-path="editor.activeFile?.kind === 'file' ? editor.activeFile.path : null"
+          :active-path="editor.activeFile?.kind === 'file' ? editor.activeFile.path ?? null : null"
           @toggle="toggle"
           @open-anyway="toggle($event, true)"
           @menu="openMenu"

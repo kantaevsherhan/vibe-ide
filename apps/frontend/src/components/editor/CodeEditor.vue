@@ -68,7 +68,7 @@ async function mountEditor() {
 
   monacoEditor = monacoInstance.editor.create(container.value, {
     value: activeFile.value?.content ?? '',
-    language: activeFile.value ? languageFor(activeFile.value.path) : 'plaintext',
+    language: activeFile.value?.path ? languageFor(activeFile.value.path) : 'plaintext',
     theme: settings.local.theme === 'light' ? 'vibe-light' : 'vibe-dark',
     automaticLayout: true,
     minimap: { enabled: true },
@@ -97,7 +97,7 @@ watch(
     applyingExternalValue = true;
     monacoEditor.setValue(activeFile.value?.content ?? '');
     const model = monacoEditor.getModel();
-    if (model && activeFile.value) {
+    if (model && activeFile.value?.path) {
       monacoInstance.editor.setModelLanguage(model, languageFor(activeFile.value.path));
     }
     applyingExternalValue = false;

@@ -239,7 +239,7 @@ function deleteMessage() {
           :expanded="notes.expandedFolders"
           :loading-folders="notes.loadingFolders"
           :children-by-path="notes.childrenByPath"
-          :active-path="editor.activeFile?.kind === 'note' ? editor.activeFile.path : null"
+          :active-path="editor.activeFile?.kind === 'note' ? editor.activeFile.path ?? null : null"
           @toggle="toggle"
           @menu="openMenu"
           @move="move"

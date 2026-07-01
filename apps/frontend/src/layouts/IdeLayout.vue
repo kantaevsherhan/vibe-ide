@@ -3,7 +3,7 @@ import { Bot, Download, Files, GitBranch, Maximize, Menu, Minimize, NotebookText
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import ActivityBar from '../components/activity-bar/ActivityBar.vue';
-import AgentsPanel from '../components/agents/AgentsPanel.vue';
+import AgentsSidebar from '../components/agents/AgentsSidebar.vue';
 import EditorTabs from '../components/editor/EditorTabs.vue';
 import WorkspaceEditor from '../components/editor/WorkspaceEditor.vue';
 import WorkspaceHealth from '../components/health/WorkspaceHealth.vue';
@@ -187,7 +187,7 @@ onBeforeUnmount(() => {
       <GitPanel v-else-if="activeView === 'git'" />
       <TerminalPanel v-else-if="activeView === 'terminal'" />
       <NotesPanel v-else-if="activeView === 'notes'" />
-      <AgentsPanel v-else />
+      <AgentsSidebar v-else />
     </aside>
 
     <button
@@ -242,7 +242,7 @@ onBeforeUnmount(() => {
       <GitPanel v-else-if="activeView === 'git'" />
       <TerminalPanel v-else-if="activeView === 'terminal'" />
       <NotesPanel v-else-if="activeView === 'notes'" />
-      <AgentsPanel v-else />
+      <AgentsSidebar v-else />
     </aside>
 
     <section v-if="isMobile && activeView === 'terminal'" class="mobile-terminal-overlay">
