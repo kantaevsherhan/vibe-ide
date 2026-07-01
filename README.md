@@ -90,19 +90,32 @@ Do not open `apps/frontend/dist/index.html` directly as a file. The built fronte
 
 ## Manual Update
 
-After logging in, open the Projects page and click `Check for Updates` to pull the latest changes from GitHub and rebuild VibeIDE.
+After logging in, open the Projects page and click `Check for Updates`. VibeIDE starts a background update job, shows live logs, and keeps the HTTP request short.
 
-The backend runs a fixed update flow from the VibeIDE project root:
+The backend runs only the fixed script at `scripts/update.sh`:
 
 ```txt
 git fetch origin
-git status -uno
-git pull origin main
+git status --porcelain
+git pull --ff-only
 npm install
 npm run build
 ```
 
-If VibeIDE is already current, the UI shows `Already up to date`. If updates were installed, restart the server so the running backend process uses the rebuilt files.
+If local changes are detected, the update stops and asks you to commit, stash, or remove them first. If updates were installed, restart the service manually so the running backend process uses the rebuilt files.
+
+Restart examples:
+
+```bash
+sudo systemctl restart vibeide
+pm2 restart vibeide
+```
+
+For manual starts, stop the current process with `Ctrl+C` and run:
+
+```bash
+npm run start
+```
 
 ## Docker
 

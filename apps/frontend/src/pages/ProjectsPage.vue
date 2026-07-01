@@ -81,14 +81,17 @@ async function confirmDeleteProject(folderName: string) {
         </div>
       </header>
 
-      <section v-if="system.logs.length > 0 || system.message" class="border border-ide-border bg-ide-sidebar p-3">
+      <section v-if="system.logs || system.message" class="border border-ide-border bg-ide-sidebar p-3">
         <div class="mb-2 flex items-center justify-between gap-3">
           <span class="text-xs uppercase tracking-wide text-ide-muted">Manual Update</span>
-          <span class="text-xs" :class="system.status === 'failed' ? 'text-red-300' : system.status === 'updated' ? 'text-green-300' : 'text-ide-muted'">
+          <span class="text-xs" :class="system.status === 'error' ? 'text-red-300' : system.status === 'done' ? 'text-green-300' : 'text-ide-muted'">
             {{ system.message }}
           </span>
         </div>
-        <pre class="max-h-40 overflow-auto whitespace-pre-wrap bg-[#181818] p-3 font-mono text-[11px] leading-5 text-ide-text thin-scrollbar">{{ system.logs.join('\n') }}</pre>
+        <pre class="max-h-60 overflow-auto whitespace-pre-wrap bg-[#181818] p-3 font-mono text-[11px] leading-5 text-ide-text thin-scrollbar">{{ system.logs }}</pre>
+        <div v-if="system.status === 'done'" class="mt-3 border border-green-500/40 bg-green-500/10 p-3 text-sm text-green-200">
+          Update completed successfully. Please restart VibeIDE service to apply changes.
+        </div>
       </section>
 
       <label class="block">
