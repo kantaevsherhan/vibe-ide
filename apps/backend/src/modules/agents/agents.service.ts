@@ -23,7 +23,9 @@ export class AgentsService {
         return {
           ...agent,
           installed,
-          status: !agent.enabled || !installed ? 'not_installed' : 'idle'
+          status: !agent.enabled || !installed ? 'not_installed' : 'idle',
+          resolvedCommand: this.manager.resolvedCommand(agent),
+          lastError: this.manager.lastCommandError(agent)
         } satisfies AgentListItem;
       })
     );

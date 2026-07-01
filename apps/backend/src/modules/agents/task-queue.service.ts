@@ -78,6 +78,13 @@ export class TaskQueueService {
     await fs.appendFile(this.logPath(projectPath, taskId), data, 'utf8');
   }
 
+  async writePromptFile(projectPath: string, taskId: string, prompt: string) {
+    const promptPath = path.join(projectPath, '.vibeide', 'agents', 'prompts', `${taskId}.md`);
+    await fs.mkdir(path.dirname(promptPath), { recursive: true });
+    await fs.writeFile(promptPath, prompt, 'utf8');
+    return promptPath;
+  }
+
   async readLog(projectPath: string, taskId: string) {
     return fs.readFile(this.logPath(projectPath, taskId), 'utf8').catch(() => '');
   }

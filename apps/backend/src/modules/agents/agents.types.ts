@@ -8,6 +8,8 @@ export interface AgentConfig {
   command: string;
   args: string[];
   enabled: boolean;
+  inputMode?: 'stdin' | 'argument' | 'file';
+  timeoutMs?: number;
 }
 
 export interface AgentSession {
@@ -48,6 +50,8 @@ export interface AgentsConfigFile {
 export type AgentListItem = AgentConfig & {
   installed: boolean;
   status: AgentStatus;
+  resolvedCommand?: string;
+  lastError?: string;
 };
 
 export type AgentWsMessage =

@@ -3,10 +3,10 @@ import path from 'node:path';
 import type { AgentConfig, AgentsConfigFile } from './agents.types.js';
 
 const defaultAgents: AgentConfig[] = [
-  { id: 'claude', name: 'Claude Code', command: 'claude', args: [], enabled: true },
-  { id: 'codex', name: 'Codex', command: 'codex', args: [], enabled: true },
-  { id: 'gemini', name: 'Gemini', command: 'gemini', args: [], enabled: true },
-  { id: 'custom', name: 'Custom Agent', command: 'npx', args: ['my-agent'], enabled: false }
+  { id: 'claude', name: 'Claude Code', command: 'claude', args: ['-p', '{prompt}'], inputMode: 'argument', enabled: true },
+  { id: 'codex', name: 'Codex', command: 'codex', args: ['exec', '{prompt}'], inputMode: 'argument', enabled: true },
+  { id: 'gemini', name: 'Gemini', command: 'gemini', args: ['-p', '{prompt}'], inputMode: 'argument', enabled: true },
+  { id: 'custom', name: 'Custom Agent', command: 'npx', args: ['my-agent'], inputMode: 'stdin', enabled: false }
 ];
 
 export class AgentsConfigService {
@@ -38,7 +38,14 @@ export class AgentsConfigService {
 
   private merge(partial: Partial<AgentsConfigFile>): AgentsConfigFile {
     return {
-      agents: partial.agents ?? defaultAgents,
+      agents: (partial.agents ?? defaultAgents).map((agent) => {
+        const fallback = defaultAgents.find((item) => item.id === agent.id);
+        return {
+          ...agent,
+          args: agent.args && agent.args.length > 0 ? agent.args : (fallback?.args ?? []),
+          inputMode: agent.inputMode ?? fallback?.inputMode ?? 'stdin'
+        };
+      }),
       notifications: {
         telegram: {
           enabled: partial.notifications?.telegram?.enabled ?? false,

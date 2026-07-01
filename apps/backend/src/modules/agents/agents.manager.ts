@@ -1,8 +1,7 @@
-import { existsSync } from 'node:fs';
 import os from 'node:os';
 import pty, { type IPty } from 'node-pty';
 import { execa } from 'execa';
-import type { AgentConfig, AgentSession, AgentStatus, AgentTask, AgentWsMessage } from './agents.types.js';
+import type { AgentConfig, AgentSession, AgentTask, AgentWsMessage } from './agents.types.js';
 import type { NotificationsService } from './notifications.service.js';
 import type { TaskQueueService } from './task-queue.service.js';
 
@@ -12,6 +11,7 @@ type ActiveProcess = {
   projectName: string;
   agentId: string;
   pty: IPty;
+  timeout?: NodeJS.Timeout;
 };
 
 export class AgentsManager {
@@ -19,6 +19,7 @@ export class AgentsManager {
   private readonly active = new Map<string, ActiveProcess>();
   private readonly installedCache = new Map<string, boolean>();
   private readonly commandPathCache = new Map<string, string>();
+  private readonly commandErrorCache = new Map<string, string>();
 
   constructor(
     private readonly queue: TaskQueueService,
@@ -44,8 +45,19 @@ export class AgentsManager {
       const commandPath = result.stdout.split(/\r?\n/).find(Boolean);
       if (commandPath) this.commandPathCache.set(cacheKey, commandPath);
     }
+    if (!installed) {
+      this.commandErrorCache.set(cacheKey, result.stderr || `${agent.command} was not found in PATH.`);
+    }
     this.installedCache.set(cacheKey, installed);
     return installed;
+  }
+
+  resolvedCommand(agent: AgentConfig) {
+    return this.commandPathCache.get(this.cacheKey(agent));
+  }
+
+  lastCommandError(agent: AgentConfig) {
+    return this.commandErrorCache.get(this.cacheKey(agent));
   }
 
   async startNext(projectPath: string, projectName: string, agents: AgentConfig[]) {
@@ -72,6 +84,7 @@ export class AgentsManager {
   cancel(projectName: string, taskId: string) {
     const active = this.active.get(taskId);
     if (active?.projectName === projectName) {
+      if (active.timeout) clearTimeout(active.timeout);
       active.pty.kill();
       this.active.delete(taskId);
     }
@@ -111,19 +124,40 @@ export class AgentsManager {
     await this.upsertSession(projectPath, session);
 
     const shellEnv = { ...process.env, VIBEIDE_PROJECT: projectName };
-    const ptyProcess = pty.spawn(this.resolveCommand(agent), agent.args, {
-      name: 'xterm-color',
-      cols: 100,
-      rows: 28,
-      cwd: projectPath,
-      env: shellEnv
-    });
+    const context = await this.queue.readContext(projectPath);
+    const finalPrompt = this.queue.buildPrompt(context, task);
+    const promptFile = await this.queue.writePromptFile(projectPath, task.id, finalPrompt);
+    const spawnArgs = this.buildArgs(agent, finalPrompt, promptFile);
+    let ptyProcess: IPty;
+    try {
+      ptyProcess = pty.spawn(this.resolveCommand(agent), spawnArgs, {
+        name: 'xterm-color',
+        cols: 100,
+        rows: 28,
+        cwd: projectPath,
+        env: shellEnv
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to start agent process.';
+      await this.queue.appendLog(projectPath, task.id, `${message}\n`);
+      await this.finishStartupError(projectPath, projectName, agent, task.id, message);
+      return;
+    }
 
-    this.active.set(task.id, { taskId: task.id, projectName, agentId: agent.id, pty: ptyProcess });
+    const timeout = agent.timeoutMs
+      ? setTimeout(() => {
+          if (!this.active.has(task.id)) return;
+          void this.queue.appendLog(projectPath, task.id, `\nAgent timed out after ${agent.timeoutMs}ms.\n`);
+          ptyProcess.kill();
+        }, agent.timeoutMs)
+      : undefined;
+
+    this.active.set(task.id, { taskId: task.id, projectName, agentId: agent.id, pty: ptyProcess, timeout });
     this.broadcast(projectName, { type: 'agent_status', session });
 
-    const context = await this.queue.readContext(projectPath);
-    ptyProcess.write(`${this.queue.buildPrompt(context, task)}\n`);
+    if ((agent.inputMode ?? 'stdin') === 'stdin') {
+      ptyProcess.write(`${finalPrompt}\n`);
+    }
 
     ptyProcess.onData((data) => {
       void this.queue.appendLog(projectPath, task.id, data);
@@ -149,6 +183,8 @@ export class AgentsManager {
     status: 'done' | 'error',
     exitCode: number
   ) {
+    const active = this.active.get(taskId);
+    if (active?.timeout) clearTimeout(active.timeout);
     this.active.delete(taskId);
     const error = status === 'error' ? `Agent exited with code ${exitCode}.` : undefined;
     const task = await this.updateTask(projectPath, taskId, { status, error, finishedAt: new Date().toISOString() });
@@ -164,6 +200,21 @@ export class AgentsManager {
     }
 
     await this.startNext(projectPath, projectName, agents);
+  }
+
+  private async finishStartupError(projectPath: string, projectName: string, agent: AgentConfig, taskId: string, message: string) {
+    const task = await this.updateTask(projectPath, taskId, {
+      status: 'error',
+      error: message,
+      finishedAt: new Date().toISOString()
+    });
+    await this.updateSession(projectPath, `${taskId}:${agent.id}`, {
+      status: 'error',
+      updatedAt: new Date().toISOString(),
+      lastOutput: message
+    });
+    if (task) await this.notifications.taskError(agent.name, task);
+    this.broadcast(projectName, { type: 'agent_error', taskId, agentId: agent.id, message });
   }
 
   private async updateTask(projectPath: string, taskId: string, patch: Partial<AgentTask>) {
@@ -209,7 +260,21 @@ export class AgentsManager {
   }
 
   private resolveCommand(agent: AgentConfig) {
-    const cacheKey = `${agent.command}:${agent.args.join(' ')}`;
-    return this.commandPathCache.get(cacheKey) ?? agent.command;
+    return this.commandPathCache.get(this.cacheKey(agent)) ?? agent.command;
+  }
+
+  private buildArgs(agent: AgentConfig, prompt: string, promptFile: string) {
+    const mode = agent.inputMode ?? 'stdin';
+    const args = agent.args.map((arg) => arg.replaceAll('{prompt}', prompt).replaceAll('{promptFile}', promptFile));
+    const hasPromptPlaceholder = agent.args.some((arg) => arg.includes('{prompt}'));
+    const hasPromptFilePlaceholder = agent.args.some((arg) => arg.includes('{promptFile}'));
+
+    if (mode === 'argument' && !hasPromptPlaceholder) return [...args, prompt];
+    if (mode === 'file' && !hasPromptFilePlaceholder) return [...args, promptFile];
+    return args;
+  }
+
+  private cacheKey(agent: AgentConfig) {
+    return `${agent.command}:${agent.args.join(' ')}`;
   }
 }

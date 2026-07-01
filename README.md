@@ -235,10 +235,10 @@ Example:
 ```json
 {
   "agents": [
-    { "id": "claude", "name": "Claude Code", "command": "claude", "args": [], "enabled": true },
-    { "id": "codex", "name": "Codex", "command": "codex", "args": [], "enabled": true },
-    { "id": "gemini", "name": "Gemini", "command": "gemini", "args": [], "enabled": true },
-    { "id": "custom", "name": "Custom Agent", "command": "npx", "args": ["my-agent"], "enabled": false }
+    { "id": "claude", "name": "Claude Code", "command": "claude", "args": ["-p", "{prompt}"], "inputMode": "argument", "enabled": true },
+    { "id": "codex", "name": "Codex", "command": "codex", "args": ["exec", "{prompt}"], "inputMode": "argument", "enabled": true },
+    { "id": "gemini", "name": "Gemini", "command": "gemini", "args": ["-p", "{prompt}"], "inputMode": "argument", "enabled": true },
+    { "id": "custom", "name": "Custom Agent", "command": "npx", "args": ["my-agent"], "inputMode": "stdin", "enabled": false }
   ],
   "notifications": {
     "telegram": {
@@ -251,6 +251,49 @@ Example:
 ```
 
 If an agent command is not installed on the server, the UI shows `Not installed` and VibeIDE keeps running.
+
+Real CLI agents usually need a non-interactive mode. VibeIDE supports three input modes:
+
+```txt
+stdin     write the final prompt to stdin after process start
+argument  pass the final prompt as a command argument
+file      write the prompt to .vibeide/agents/prompts/<task-id>.md and pass the file path
+```
+
+Use `{prompt}` or `{promptFile}` placeholders in `args`:
+
+```json
+{
+  "agents": [
+    {
+      "id": "claude",
+      "name": "Claude Code",
+      "command": "claude",
+      "args": ["-p", "{prompt}"],
+      "inputMode": "argument",
+      "enabled": true
+    },
+    {
+      "id": "codex",
+      "name": "Codex",
+      "command": "codex",
+      "args": ["exec", "{prompt}"],
+      "inputMode": "argument",
+      "enabled": true
+    },
+    {
+      "id": "custom",
+      "name": "Custom Agent",
+      "command": "node",
+      "args": ["agent.js", "{promptFile}"],
+      "inputMode": "file",
+      "enabled": false
+    }
+  ]
+}
+```
+
+The Agents panel shows the resolved CLI path and startup errors, which helps catch PATH problems when the backend runs from an installer or service.
 
 The frontend cannot pass arbitrary commands or working directories. It can only send prompts to agents declared in `agents.config.json`.
 

@@ -30,6 +30,9 @@ const statusClass = {
           </span>
         </div>
         <div class="mt-1 truncate font-mono text-[11px] text-ide-muted">{{ agent.command }} {{ agent.args.join(' ') }}</div>
+        <div class="mt-1 truncate text-[11px] text-ide-muted">Mode: {{ agent.inputMode ?? 'stdin' }}</div>
+        <div v-if="agent.resolvedCommand" class="mt-1 truncate font-mono text-[10px] text-ide-muted">{{ agent.resolvedCommand }}</div>
+        <div v-if="agent.lastError" class="mt-1 text-[11px] text-red-300">{{ agent.lastError }}</div>
         <div
           v-for="session in sessions.filter((item) => item.agentId === agent.id)"
           :key="session.id"
