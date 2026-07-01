@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { Bot, Files, GitBranch, LogOut, TerminalSquare } from '@lucide/vue';
+import { Bot, Files, GitBranch, LogOut, NotebookText, TerminalSquare } from '@lucide/vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../../stores/auth.store';
 
-const model = defineModel<'files' | 'git' | 'terminal' | 'agents'>({ required: true });
+const model = defineModel<'files' | 'git' | 'terminal' | 'notes' | 'agents'>({ required: true });
 const auth = useAuthStore();
 const router = useRouter();
 
@@ -11,6 +11,7 @@ const items = [
   { id: 'files', label: 'Files', icon: Files },
   { id: 'git', label: 'Git', icon: GitBranch },
   { id: 'terminal', label: 'Terminal', icon: TerminalSquare },
+  { id: 'notes', label: 'Notes', icon: NotebookText },
   { id: 'agents', label: 'Agents', icon: Bot }
 ] as const;
 

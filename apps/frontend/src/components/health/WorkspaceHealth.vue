@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Bot, GitBranch, TerminalSquare } from '@lucide/vue';
-import { computed, onMounted } from 'vue';
+import { computed } from 'vue';
 import { useHealthStore } from '../../stores/health.store';
 
 const health = useHealthStore();
@@ -8,10 +8,6 @@ const title = computed(() => {
   const state = health.state;
   if (!state) return 'Workspace health loading';
   return `Git: ${state.git.changedFiles} changed\nTerminals: ${state.terminals.active} active\nAgents: ${state.agents.running} running`;
-});
-
-onMounted(() => {
-  void health.refresh();
 });
 </script>
 

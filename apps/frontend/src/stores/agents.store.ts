@@ -87,6 +87,11 @@ export const useAgentsStore = defineStore('agents', () => {
     logs.value[taskId] = response.log;
   }
 
+  function clearSelectedLog() {
+    if (!selectedTaskId.value) return;
+    logs.value[selectedTaskId.value] = '';
+  }
+
   function handleMessage(message: AgentWsMessage) {
     if (message.type === 'snapshot') {
       sessions.value = message.sessions;
@@ -130,6 +135,7 @@ export const useAgentsStore = defineStore('agents', () => {
     cancel,
     retry,
     move,
-    openLog
+    openLog,
+    clearSelectedLog
   };
 });

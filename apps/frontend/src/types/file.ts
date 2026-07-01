@@ -17,8 +17,10 @@ export type FolderChildrenResponse = {
 };
 
 export type OpenFile = {
+  id: string;
   path: string;
   name: string;
   content: string;
   savedContent: string;
+  kind: 'file' | 'note';
 };

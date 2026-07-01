@@ -6,12 +6,17 @@ import type { CreateProjectInput, Project, ProjectMetadata } from './projects.ty
 
 export type TerminalCountProvider = (projectName: string) => number;
 export type ProjectDeleteProvider = (projectName: string) => void | Promise<void>;
+export type ProjectGitHealthProvider = (projectName: string) => Promise<{ changedFiles: number; clean: boolean; branch?: string | null }>;
+export type ProjectAgentsHealthProvider = (projectName: string) => Promise<{ running: number; waiting: number; errors: number; activeTasks: number }>;
 
 const projectNamePattern = /^[A-Za-z0-9_-]+$/;
+const vibeIdeGitignore = ['agents/', 'sessions/', 'logs/', 'tasks.json', 'state.json'].join('\n') + '\n';
 
 export class ProjectsService {
   private terminalCountProvider: TerminalCountProvider = () => 0;
   private projectDeleteProvider: ProjectDeleteProvider = () => {};
+  private gitHealthProvider: ProjectGitHealthProvider = async () => ({ changedFiles: 0, clean: true, branch: null });
+  private agentsHealthProvider: ProjectAgentsHealthProvider = async () => ({ running: 0, waiting: 0, errors: 0, activeTasks: 0 });
 
   constructor(private readonly workspace: WorkspaceService) {}
 
@@ -21,6 +26,14 @@ export class ProjectsService {
 
   setProjectDeleteProvider(provider: ProjectDeleteProvider) {
     this.projectDeleteProvider = provider;
+  }
+
+  setGitHealthProvider(provider: ProjectGitHealthProvider) {
+    this.gitHealthProvider = provider;
+  }
+
+  setAgentsHealthProvider(provider: ProjectAgentsHealthProvider) {
+    this.agentsHealthProvider = provider;
   }
 
   assertProjectName(projectName: string) {
@@ -82,14 +95,32 @@ export class ProjectsService {
     };
 
     await fs.mkdir(this.metadataDir(projectPath), { recursive: true });
+    await this.ensureVibeIdeGitignore(projectPath);
     await fs.writeFile(this.metadataPath(projectPath), `${JSON.stringify(metadata, null, 2)}\n`, 'utf8');
-    return { ...metadata, activeTerminalsCount: 0 };
+    return this.projectFromMetadata(projectNamePattern.test(input.folderName) ? input.folderName : metadata.folderName, projectPath, metadata);
   }
 
   async delete(projectName: string) {
     const projectPath = await this.ensureProjectExists(projectName);
     await this.projectDeleteProvider(projectName);
     await fs.rm(projectPath, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+  }
+
+  async ensureVibeIdeGitignore(projectPath: string) {
+    const gitignorePath = path.join(this.metadataDir(projectPath), '.gitignore');
+    const current = await fs.readFile(gitignorePath, 'utf8').catch(() => '');
+    const missingLines = vibeIdeGitignore
+      .trim()
+      .split('\n')
+      .filter((line) => !current.split(/\r?\n/).includes(line));
+
+    if (current && missingLines.length === 0) return;
+
+    const next = current
+      ? `${current.replace(/\s*$/, '\n')}${missingLines.join('\n')}\n`
+      : vibeIdeGitignore;
+    await fs.mkdir(this.metadataDir(projectPath), { recursive: true });
+    await fs.writeFile(gitignorePath, next, 'utf8');
   }
 
   private async readProject(projectName: string): Promise<Project | null> {
@@ -103,10 +134,40 @@ export class ProjectsService {
       ? (JSON.parse(raw.replace(/^\uFEFF/, '')) as ProjectMetadata)
       : await this.createMissingMetadata(projectName, projectPath);
 
+    return this.projectFromMetadata(projectName, projectPath, metadata);
+  }
+
+  private async projectFromMetadata(projectName: string, projectPath: string, metadata: ProjectMetadata): Promise<Project> {
+    const [git, agents] = await Promise.all([
+      this.gitHealthProvider(projectName).catch(() => ({ changedFiles: 0, clean: true, branch: null })),
+      this.agentsHealthProvider(projectName).catch(() => ({ running: 0, waiting: 0, errors: 0, activeTasks: 0 }))
+    ]);
+    const activeTerminals = this.terminalCountProvider(projectName);
+
     return {
       ...metadata,
-      activeTerminalsCount: this.terminalCountProvider(projectName)
+      location: projectPath,
+      activeTerminalsCount: activeTerminals,
+      runtime: {
+        activeTerminals,
+        runningAgents: agents.running,
+        activeTasks: agents.activeTasks
+      },
+      health: {
+        gitChangedFiles: git.changedFiles,
+        gitClean: git.clean,
+        gitBranch: git.branch ?? null,
+        terminalStatus: activeTerminals > 0 ? 'active' : 'inactive',
+        agentStatus: this.agentStatus(agents)
+      }
     };
+  }
+
+  private agentStatus(agents: { running: number; waiting: number; errors: number }): Project['health']['agentStatus'] {
+    if (agents.errors > 0) return 'error';
+    if (agents.waiting > 0) return 'waiting';
+    if (agents.running > 0) return 'running';
+    return 'idle';
   }
 
   private async createMissingMetadata(projectName: string, projectPath: string): Promise<ProjectMetadata> {
@@ -119,6 +180,7 @@ export class ProjectsService {
       updatedAt: now
     };
     await fs.mkdir(this.metadataDir(projectPath), { recursive: true });
+    await this.ensureVibeIdeGitignore(projectPath);
     await fs.writeFile(this.metadataPath(projectPath), `${JSON.stringify(metadata, null, 2)}\n`, 'utf8');
     return metadata;
   }

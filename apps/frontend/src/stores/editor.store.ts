@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import { ApiError } from '../services/api';
 import { filesApi } from '../services/files.api';
+import { notesApi } from '../services/notes.api';
 import type { OpenFile } from '../types/file';
 
 function fileName(path: string) {
@@ -15,7 +16,7 @@ export const useEditorStore = defineStore('editor', () => {
   const saving = ref(false);
   const blockedFile = ref<{ path: string; title: string; message: string; canForceOpen: boolean } | null>(null);
 
-  const activeFile = computed(() => openFiles.value.find((file) => file.path === activePath.value) ?? null);
+  const activeFile = computed(() => openFiles.value.find((file) => file.id === activePath.value) ?? null);
 
   function setProject(nextProjectName: string) {
     if (projectName.value === nextProjectName) return;
@@ -36,7 +37,7 @@ export const useEditorStore = defineStore('editor', () => {
 
     try {
       const { content } = await filesApi.read(projectName.value, path, force);
-      openFiles.value.push({ path, name: fileName(path), content, savedContent: content });
+      openFiles.value.push({ id: path, path, name: fileName(path), content, savedContent: content, kind: 'file' });
       activePath.value = path;
       blockedFile.value = null;
     } catch (error) {
@@ -72,6 +73,32 @@ export const useEditorStore = defineStore('editor', () => {
     }
   }
 
+  async function openNote(path: string) {
+    if (!projectName.value) return;
+    const id = `note:${path}`;
+    const existing = openFiles.value.find((file) => file.id === id);
+    if (existing) {
+      activePath.value = id;
+      blockedFile.value = null;
+      return;
+    }
+
+    try {
+      const { content } = await notesApi.read(projectName.value, path);
+      openFiles.value.push({ id, path, name: fileName(path), content, savedContent: content, kind: 'note' });
+      activePath.value = id;
+      blockedFile.value = null;
+    } catch (error) {
+      activePath.value = null;
+      blockedFile.value = {
+        path,
+        title: 'Cannot open note',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        canForceOpen: false
+      };
+    }
+  }
+
   async function openAnyway() {
     const path = blockedFile.value?.path;
     if (!path) return;
@@ -79,12 +106,12 @@ export const useEditorStore = defineStore('editor', () => {
   }
 
   function close(path: string) {
-    const index = openFiles.value.findIndex((file) => file.path === path);
+    const index = openFiles.value.findIndex((file) => file.id === path);
     if (index === -1) return;
 
     openFiles.value.splice(index, 1);
     if (activePath.value === path) {
-      activePath.value = openFiles.value[Math.max(0, index - 1)]?.path ?? null;
+      activePath.value = openFiles.value[Math.max(0, index - 1)]?.id ?? null;
     }
   }
 
@@ -98,7 +125,11 @@ export const useEditorStore = defineStore('editor', () => {
     saving.value = true;
     try {
       if (!projectName.value) return;
-      await filesApi.write(projectName.value, activeFile.value.path, activeFile.value.content);
+      if (activeFile.value.kind === 'note') {
+        await notesApi.write(projectName.value, activeFile.value.path, activeFile.value.content);
+      } else {
+        await filesApi.write(projectName.value, activeFile.value.path, activeFile.value.content);
+      }
       activeFile.value.savedContent = activeFile.value.content;
     } finally {
       saving.value = false;
@@ -106,7 +137,7 @@ export const useEditorStore = defineStore('editor', () => {
   }
 
   function isDirty(path: string) {
-    const file = openFiles.value.find((item) => item.path === path);
+    const file = openFiles.value.find((item) => item.id === path);
     return Boolean(file && file.content !== file.savedContent);
   }
 
@@ -120,6 +151,7 @@ export const useEditorStore = defineStore('editor', () => {
     setProject,
     open,
     openAnyway,
+    openNote,
     close,
     updateContent,
     saveActive,

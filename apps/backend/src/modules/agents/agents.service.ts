@@ -113,6 +113,18 @@ export class AgentsService {
     return this.manager.health(projectPath, projectName);
   }
 
+  async runtimeSummary(projectName: string) {
+    const projectPath = await this.projects.ensureProjectExists(projectName);
+    const [health, tasks] = await Promise.all([
+      this.health(projectName),
+      this.queue.recoverInterruptedTasks(projectPath, (taskId) => this.manager.hasActiveTask(taskId))
+    ]);
+    return {
+      ...health,
+      activeTasks: tasks.filter((task) => task.status === 'queued' || task.status === 'running' || task.status === 'waiting').length
+    };
+  }
+
   private getAgent(agentId: string): AgentConfig {
     const agent = this.agents().find((item) => item.id === agentId);
     if (!agent) throw Object.assign(new Error('Agent was not found.'), { statusCode: 404 });

@@ -6,10 +6,6 @@ export interface UseResizableOptions {
   key: string;
   defaultWidth?: number;
   defaultHeight?: number;
-  minWidth?: number;
-  maxWidth?: number;
-  minHeight?: number;
-  maxHeight?: number;
   direction: ResizeDirection;
   verticalGrowthDirection?: 'down' | 'up';
 }
@@ -21,8 +17,16 @@ type StoredSize = {
 
 const resizeEventName = 'vibeide:resize';
 
-function clamp(value: number, min?: number, max?: number) {
-  return Math.min(max ?? Number.POSITIVE_INFINITY, Math.max(min ?? Number.NEGATIVE_INFINITY, value));
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function viewportWidthLimit() {
+  return Math.max(0, window.innerWidth - 64);
+}
+
+function viewportHeightLimit() {
+  return Math.max(0, window.innerHeight - 64);
 }
 
 function readStoredSize(key: string): StoredSize {
@@ -40,8 +44,8 @@ function saveStoredSize(key: string, size: StoredSize) {
 
 export function useResizable(options: UseResizableOptions) {
   const storedSize = readStoredSize(options.key);
-  const width = ref(storedSize.width ?? options.defaultWidth ?? 0);
-  const height = ref(storedSize.height ?? options.defaultHeight ?? 0);
+  const width = ref(clamp(storedSize.width ?? options.defaultWidth ?? 0, 0, viewportWidthLimit()));
+  const height = ref(clamp(storedSize.height ?? options.defaultHeight ?? 0, 0, viewportHeightLimit()));
   const isResizing = ref(false);
 
   let startX = 0;
@@ -74,13 +78,13 @@ export function useResizable(options: UseResizableOptions) {
     if (!isResizing.value) return;
 
     if (options.direction === 'horizontal' || options.direction === 'both') {
-      width.value = clamp(startWidth + event.clientX - startX, options.minWidth, options.maxWidth);
+      width.value = clamp(startWidth + event.clientX - startX, 0, viewportWidthLimit());
     }
 
     if (options.direction === 'vertical' || options.direction === 'both') {
       const deltaY = event.clientY - startY;
       const nextHeight = options.verticalGrowthDirection === 'up' ? startHeight - deltaY : startHeight + deltaY;
-      height.value = clamp(nextHeight, options.minHeight, options.maxHeight);
+      height.value = clamp(nextHeight, 0, viewportHeightLimit());
     }
 
     persistAndNotify();

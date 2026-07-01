@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { Bot, Download, Files, GitBranch, Maximize, Menu, Minimize, TerminalSquare, X } from '@lucide/vue';
+import { Bot, Download, Files, GitBranch, Maximize, Menu, Minimize, NotebookText, TerminalSquare, X } from '@lucide/vue';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 import ActivityBar from '../components/activity-bar/ActivityBar.vue';
 import AgentsPanel from '../components/agents/AgentsPanel.vue';
-import CodeEditor from '../components/editor/CodeEditor.vue';
 import EditorTabs from '../components/editor/EditorTabs.vue';
+import WorkspaceEditor from '../components/editor/WorkspaceEditor.vue';
 import WorkspaceHealth from '../components/health/WorkspaceHealth.vue';
-import ProjectRuntimeDashboard from '../components/runtime/ProjectRuntimeDashboard.vue';
+import NotesPanel from '../components/notes/NotesPanel.vue';
 import FileExplorer from '../components/sidebar/FileExplorer.vue';
 import GitPanel from '../components/sidebar/GitPanel.vue';
 import TerminalPanel from '../components/sidebar/TerminalPanel.vue';
@@ -17,6 +17,7 @@ import { useFilesStore } from '../stores/files.store';
 import { useGitStore } from '../stores/git.store';
 import { useAgentsStore } from '../stores/agents.store';
 import { useHealthStore } from '../stores/health.store';
+import { useNotesStore } from '../stores/notes.store';
 import { useTerminalStore } from '../stores/terminal.store';
 import { useEditorStore } from '../stores/editor.store';
 
@@ -25,7 +26,7 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
 };
 
-type IdeView = 'files' | 'git' | 'terminal' | 'agents';
+type IdeView = 'files' | 'git' | 'terminal' | 'notes' | 'agents';
 
 const activeView = ref<IdeView>('files');
 const drawerOpen = ref(false);
@@ -36,27 +37,23 @@ const files = useFilesStore();
 const git = useGitStore();
 const agents = useAgentsStore();
 const health = useHealthStore();
+const notes = useNotesStore();
 const editor = useEditorStore();
 const terminals = useTerminalStore();
 const route = useRoute();
-const router = useRouter();
 let mobileMediaQuery: MediaQueryList | null = null;
 const projectName = computed(() => String(route.params.projectName ?? ''));
 
 const sidebarResize = useResizable({
   key: 'vibeide.sidebar.size',
   direction: 'horizontal',
-  defaultWidth: 280,
-  minWidth: 200,
-  maxWidth: 600
+  defaultWidth: 280
 });
 
 const terminalResize = useResizable({
   key: 'vibeide.terminal.size',
   direction: 'vertical',
   defaultHeight: 280,
-  minHeight: 160,
-  maxHeight: Math.round(window.innerHeight * 0.7),
   verticalGrowthDirection: 'up'
 });
 
@@ -64,6 +61,7 @@ const activeTitle = computed(() => {
   if (activeView.value === 'files') return 'Files';
   if (activeView.value === 'git') return 'Git';
   if (activeView.value === 'terminal') return 'Terminal';
+  if (activeView.value === 'notes') return 'Notes';
   return 'Agents';
 });
 
@@ -71,6 +69,7 @@ const navItems = [
   { id: 'files', label: 'Files', icon: Files },
   { id: 'git', label: 'Git', icon: GitBranch },
   { id: 'terminal', label: 'Terminal', icon: TerminalSquare },
+  { id: 'notes', label: 'Notes', icon: NotebookText },
   { id: 'agents', label: 'Agents', icon: Bot }
 ] as const;
 
@@ -117,9 +116,11 @@ onMounted(async () => {
   git.setProject(projectName.value);
   agents.setProject(projectName.value);
   health.setProject(projectName.value);
+  notes.setProject(projectName.value);
   editor.setProject(projectName.value);
   terminals.setProject(projectName.value);
   await files.refresh();
+  await notes.refresh();
   void agents.refresh();
   void health.refresh();
   syncFullscreenState();
@@ -129,10 +130,6 @@ onMounted(async () => {
   document.addEventListener('fullscreenchange', syncFullscreenState);
   window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
 });
-
-async function backToProjects() {
-  await router.push('/projects');
-}
 
 onBeforeUnmount(() => {
   mobileMediaQuery?.removeEventListener('change', syncMobileState);
@@ -158,7 +155,7 @@ onBeforeUnmount(() => {
         <Menu :size="22" />
       </button>
       <div class="min-w-0">
-        <div class="truncate text-sm font-semibold">VibeIDE / {{ projectName }}</div>
+        <div class="truncate text-sm font-semibold">VibeIDE</div>
         <div class="truncate text-[11px] text-ide-muted">{{ activeTitle }}</div>
       </div>
       <button v-if="deferredInstallPrompt" class="install-button" @click="installPwa">Install VibeIDE</button>
@@ -178,6 +175,7 @@ onBeforeUnmount(() => {
       <FileExplorer v-if="activeView === 'files'" />
       <GitPanel v-else-if="activeView === 'git'" />
       <TerminalPanel v-else-if="activeView === 'terminal'" />
+      <NotesPanel v-else-if="activeView === 'notes'" />
       <AgentsPanel v-else />
     </aside>
 
@@ -190,8 +188,11 @@ onBeforeUnmount(() => {
     />
 
     <main class="editor-area min-w-0">
-      <div class="desktop-floating-actions">
-        <button class="desktop-action-button px-2" @click="backToProjects">← Projects</button>
+      <header class="workspace-header">
+        <div class="workspace-status">
+          <WorkspaceHealth />
+        </div>
+        <div class="workspace-actions">
         <button v-if="deferredInstallPrompt" class="desktop-action-button gap-2 px-2" @click="installPwa">
           <Download :size="14" />
           Install VibeIDE
@@ -205,15 +206,9 @@ onBeforeUnmount(() => {
           <span class="sr-only">Exit Fullscreen</span>
         </button>
       </div>
-      <div class="project-breadcrumb">
-        <button class="text-ide-muted hover:text-ide-text" @click="backToProjects">← Projects</button>
-        <span class="text-ide-muted">/</span>
-        <span class="font-mono text-ide-accent">{{ projectName }}</span>
-        <ProjectRuntimeDashboard />
-        <WorkspaceHealth />
-      </div>
+      </header>
       <EditorTabs />
-      <CodeEditor />
+      <WorkspaceEditor />
       <button
         v-if="!isMobile"
         class="resize-handle-horizontal"
@@ -235,6 +230,7 @@ onBeforeUnmount(() => {
       <FileExplorer v-if="activeView === 'files'" />
       <GitPanel v-else-if="activeView === 'git'" />
       <TerminalPanel v-else-if="activeView === 'terminal'" />
+      <NotesPanel v-else-if="activeView === 'notes'" />
       <AgentsPanel v-else />
     </aside>
 

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Bot } from '@lucide/vue';
 import type { AgentListItem, AgentSession } from '../../types/agents';
 
 defineProps<{
@@ -7,6 +8,17 @@ defineProps<{
 }>();
 
 const statusClass = {
+  idle: 'bg-ide-muted',
+  running: 'bg-ide-accent',
+  thinking: 'bg-purple-400',
+  waiting: 'bg-yellow-400',
+  error: 'bg-red-400',
+  finished: 'bg-green-400',
+  stopped: 'bg-ide-muted',
+  not_installed: 'bg-ide-muted'
+};
+
+const statusTextClass = {
   idle: 'text-ide-muted',
   running: 'text-ide-accent',
   thinking: 'text-purple-300',
@@ -14,33 +26,58 @@ const statusClass = {
   error: 'text-red-300',
   finished: 'text-green-300',
   stopped: 'text-ide-muted',
-  not_installed: 'text-red-300'
+  not_installed: 'text-ide-muted'
 };
+
+const expectedAgents = ['ChatGPT', 'Claude Code', 'Gemini', 'Codex', 'Custom CLI'];
+
+function displayStatus(agent: AgentListItem, sessions: AgentSession[]) {
+  if (!agent.installed || !agent.enabled) return 'not_installed';
+  const session = sessions.find((item) => item.agentId === agent.id);
+  return session?.status ?? agent.status ?? 'idle';
+}
+
+function formatStatus(status: string) {
+  if (status === 'not_installed') return 'Not installed';
+  return status.replace(/(^|_)([a-z])/g, (_, prefix: string, letter: string) => `${prefix ? ' ' : ''}${letter.toUpperCase()}`);
+}
+
+function compactAgents(agents: AgentListItem[]) {
+  const byName = new Map(agents.map((agent) => [agent.name.toLowerCase(), agent]));
+  return expectedAgents.map((name) => {
+    const found = byName.get(name.toLowerCase());
+    return (
+      found ?? {
+        id: name.toLowerCase().replaceAll(' ', '-'),
+        name,
+        command: '',
+        args: [],
+        enabled: false,
+        installed: false,
+        status: 'not_installed' as const
+      }
+    );
+  });
+}
 </script>
 
 <template>
-  <div class="border-b border-ide-border p-3">
-    <div class="mb-2 text-[11px] uppercase tracking-wide text-ide-muted">Agents</div>
-    <div class="space-y-2">
-      <div v-for="agent in agents" :key="agent.id" class="rounded border border-ide-border bg-ide-panel p-2">
-        <div class="flex items-center justify-between gap-2">
-          <span class="truncate font-medium">{{ agent.name }}</span>
-          <span class="text-[11px]" :class="statusClass[agent.status]">
-            {{ agent.installed && agent.enabled ? agent.status : 'Not installed' }}
-          </span>
+  <div class="border-b border-ide-border px-3 py-2">
+    <div class="mb-1.5 text-[11px] uppercase tracking-wide text-ide-muted">AI Agents</div>
+    <div class="space-y-1">
+      <div
+        v-for="agent in compactAgents(agents)"
+        :key="agent.id"
+        class="flex min-h-9 items-center gap-2 rounded px-1.5 py-1 hover:bg-white/5"
+      >
+        <Bot class="shrink-0 text-ide-muted" :size="15" :stroke-width="1.8" />
+        <div class="min-w-0 flex-1">
+          <div class="truncate text-xs font-medium text-ide-text">{{ agent.name }}</div>
+          <div class="truncate text-[11px]" :class="statusTextClass[displayStatus(agent, sessions)]">
+            {{ formatStatus(displayStatus(agent, sessions)) }}
+          </div>
         </div>
-        <div class="mt-1 truncate font-mono text-[11px] text-ide-muted">{{ agent.command }} {{ agent.args.join(' ') }}</div>
-        <div class="mt-1 truncate text-[11px] text-ide-muted">Mode: {{ agent.inputMode ?? 'stdin' }}</div>
-        <div v-if="agent.resolvedCommand" class="mt-1 truncate font-mono text-[10px] text-ide-muted">{{ agent.resolvedCommand }}</div>
-        <div v-if="agent.lastError" class="mt-1 text-[11px] text-red-300">{{ agent.lastError }}</div>
-        <div
-          v-for="session in sessions.filter((item) => item.agentId === agent.id)"
-          :key="session.id"
-          class="mt-2 text-[11px] text-ide-muted"
-        >
-          Status: <span :class="statusClass[session.status]">{{ session.status }}</span>
-          <span v-if="session.currentTaskId"> · Task: {{ session.currentTaskId.slice(0, 8) }}</span>
-        </div>
+        <span class="h-2 w-2 shrink-0 rounded-full" :class="statusClass[displayStatus(agent, sessions)]" />
       </div>
     </div>
   </div>

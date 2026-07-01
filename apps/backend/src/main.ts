@@ -24,8 +24,12 @@ import { GitService } from './modules/git/git.service.js';
 import { registerGitRoutes } from './modules/git/git.routes.js';
 import { HealthService } from './modules/health/health.service.js';
 import { registerHealthRoutes } from './modules/health/health.routes.js';
+import { NotesService } from './modules/notes/notes.service.js';
+import { registerNotesRoutes } from './modules/notes/notes.routes.js';
 import { ProjectsService } from './modules/projects/projects.service.js';
 import { registerProjectsRoutes } from './modules/projects/projects.routes.js';
+import { SystemService } from './modules/system/system.service.js';
+import { registerSystemRoutes } from './modules/system/system.routes.js';
 import { TerminalService } from './modules/terminal/terminal.service.js';
 import { registerTerminalRoutes } from './modules/terminal/terminal.routes.js';
 import { IgnoreService } from './modules/workspace/ignore.service.js';
@@ -76,6 +80,8 @@ const projects = new ProjectsService(workspace);
 const ignore = new IgnoreService(projects, config);
 const files = new FilesService(projects, ignore, config);
 const git = new GitService(projects, config);
+const notes = new NotesService(projects);
+const system = new SystemService(projectRoot);
 const terminals = new TerminalService(projects, config);
 const taskQueue = new TaskQueueService();
 const telegram = new TelegramService(agentsConfigService.value);
@@ -85,6 +91,8 @@ const agents = new AgentsService(projects, agentsConfigService, taskQueue, agent
 const health = new HealthService(git, terminals, agents);
 projects.setTerminalCountProvider((projectName) => terminals.count(projectName));
 projects.setProjectDeleteProvider((projectName) => terminals.closeProject(projectName));
+projects.setGitHealthProvider((projectName) => git.health(projectName));
+projects.setAgentsHealthProvider((projectName) => agents.runtimeSummary(projectName));
 
 await registerAuthRoutes(app, auth);
 app.get('/api/health', async () => ({ ok: true }));
@@ -94,7 +102,9 @@ app.addHook('preHandler', async (request, reply) => {
     url.startsWith('/api/projects') ||
     url.startsWith('/api/agents') ||
     url.startsWith('/api/files/') ||
+    url.startsWith('/api/notes/') ||
     url.startsWith('/api/git/') ||
+    url.startsWith('/api/system/') ||
     url.startsWith('/api/workspace/') ||
     url.startsWith('/api/terminal/') ||
     url.startsWith('/api/terminals')
@@ -104,7 +114,9 @@ app.addHook('preHandler', async (request, reply) => {
 });
 await registerProjectsRoutes(app, projects);
 await registerFilesRoutes(app, files);
+await registerNotesRoutes(app, notes);
 await registerGitRoutes(app, git);
+await registerSystemRoutes(app, system);
 await registerTerminalRoutes(app, terminals, auth);
 await registerAgentsRoutes(app, agents, agentsManager, auth);
 await registerHealthRoutes(app, health);
@@ -134,7 +146,8 @@ app.setNotFoundHandler((request, reply) => {
 
 app.setErrorHandler((error: FastifyError, _request, reply) => {
   const statusCode = 'statusCode' in error && typeof error.statusCode === 'number' ? error.statusCode : 500;
-  reply.code(statusCode).send({ error: error.message });
+  const logs = 'logs' in error && Array.isArray(error.logs) ? { logs: error.logs } : {};
+  reply.code(statusCode).send({ error: error.message, ...logs });
 });
 
 const port = Number(process.env.PORT ?? config.server.port);

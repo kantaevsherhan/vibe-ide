@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Send } from '@lucide/vue';
 import { computed, onMounted, ref } from 'vue';
+import { useResizable } from '../../composables/useResizable';
 import { useAgentsStore } from '../../stores/agents.store';
 import AgentLogView from './AgentLogView.vue';
 import AgentStatusPanel from './AgentStatusPanel.vue';
@@ -9,6 +10,12 @@ import AgentTaskQueue from './AgentTaskQueue.vue';
 const agents = useAgentsStore();
 const selectedAgentId = ref('');
 const prompt = ref('');
+const logsResize = useResizable({
+  key: 'vibeide:agents:logs-height',
+  direction: 'vertical',
+  defaultHeight: 220,
+  verticalGrowthDirection: 'up'
+});
 
 const enabledAgents = computed(() => agents.agents.filter((agent) => agent.enabled));
 const selectedLog = computed(() => {
@@ -44,7 +51,7 @@ async function sendTask() {
       </select>
       <textarea
         v-model="prompt"
-        class="min-h-20 resize-none border border-ide-border bg-ide-panel p-2 text-xs outline-none focus:border-ide-accent"
+        class="min-h-16 resize-none border border-ide-border bg-ide-panel p-2 text-xs outline-none focus:border-ide-accent"
         placeholder="Send a task to the selected agent..."
       />
       <button class="inline-flex h-8 items-center justify-center gap-2 bg-ide-accent px-3 text-xs font-medium text-white hover:bg-[#1188d8]">
@@ -60,6 +67,18 @@ async function sendTask() {
       @retry="agents.retry"
       @move="agents.move"
     />
-    <AgentLogView :task-id="agents.selectedTaskId" :log="selectedLog" class="h-48 shrink-0" />
+    <button
+      class="resize-handle-horizontal shrink-0"
+      :class="{ 'resize-handle-active': logsResize.isResizing.value }"
+      title="Resize agent logs"
+      @mousedown="logsResize.startResize"
+    />
+    <AgentLogView
+      :task-id="agents.selectedTaskId"
+      :log="selectedLog"
+      class="shrink-0"
+      :style="{ height: `${logsResize.height.value}px` }"
+      @clear="agents.clearSelectedLog"
+    />
   </section>
 </template>

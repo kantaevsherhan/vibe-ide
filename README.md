@@ -8,7 +8,7 @@ The app combines a Vue/Monaco frontend with a Fastify backend, project-scoped fi
 
 ## Features
 
-- Browser IDE with Monaco Editor, file explorer, tabs, Git panel, terminal panel, and mobile/PWA support.
+- Browser IDE with Monaco Editor, file explorer, workspace notes, tabs, Git panel, terminal panel, and mobile/PWA support.
 - Project manager where every folder inside `workspace` is treated as a separate project.
 - Lazy workspace loading so large folders like `node_modules`, `.venv`, `target`, and `build` do not freeze the UI.
 - `.vibeignore` plus default ignored folders, with `Open Anyway` for manual inspection.
@@ -87,6 +87,22 @@ http://127.0.0.1:8080
 ```
 
 Do not open `apps/frontend/dist/index.html` directly as a file. The built frontend must be served by the backend so API routes, auth cookies, and WebSocket terminals work.
+
+## Manual Update
+
+After logging in, open the Projects page and click `Check for Updates` to pull the latest changes from GitHub and rebuild VibeIDE.
+
+The backend runs a fixed update flow from the VibeIDE project root:
+
+```txt
+git fetch origin
+git status -uno
+git pull origin main
+npm install
+npm run build
+```
+
+If VibeIDE is already current, the UI shows `Already up to date`. If updates were installed, restart the server so the running backend process uses the rebuilt files.
 
 ## Docker
 
@@ -172,6 +188,18 @@ workspace/<project>/.vibeide/project.json
 
 Inside the IDE, file operations, Git commands, terminals, and AI agents are scoped to that project folder only.
 
+VibeIDE also creates a project-local `.vibeide/.gitignore`:
+
+```txt
+agents/
+sessions/
+logs/
+tasks.json
+state.json
+```
+
+This keeps AI logs, task queues, temporary sessions, and runtime state out of Git while allowing project documentation to be committed.
+
 ## File Explorer
 
 VibeIDE does not scan the whole project at once. It loads only one folder level at a time:
@@ -199,6 +227,20 @@ GET /api/files/children?projectName=my-project&path=node_modules&force=true
 ```
 
 Large folders are capped by `workspace.maxFolderChildren`. Large files and binary files are protected from accidental Monaco preview.
+
+## Workspace Notes
+
+Workspace Notes is a small Obsidian-like Markdown tree inside each project. Notes are stored next to the project metadata:
+
+```txt
+workspace/<project>/.vibeide/notes/
+```
+
+The Notes activity view behaves like the file explorer: folders are loaded lazily, can be expanded and collapsed, and support creating Markdown files, folders, rename, delete, duplicate, copy path, and drag-and-drop moves.
+
+Opening a note uses the same editor tab system as source files. Markdown notes autosave after edits and support `Edit`, `Preview`, and `Split` modes with rendered tables, task lists, code blocks, links, images, blockquotes, horizontal rules, emoji, and syntax highlighting.
+
+Notes live inside `.vibeide` because they belong to VibeIDE's project workspace, but they are intentionally not ignored. Markdown files under `.vibeide/notes` should be indexed by Git so architecture notes, TODOs, prompts, and project documentation travel with the repository. Only runtime files listed in `.vibeide/.gitignore` are excluded.
 
 ## Git
 

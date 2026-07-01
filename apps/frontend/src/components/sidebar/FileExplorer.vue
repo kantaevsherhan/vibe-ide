@@ -80,7 +80,7 @@ async function remove(path: string) {
         :loading-folders="files.loadingFolders"
         :children-by-path="files.childrenByPath"
         :folder-limits="files.folderLimits"
-        :active-path="editor.activePath"
+        :active-path="editor.activeFile?.kind === 'file' ? editor.activeFile.path : null"
         @toggle="toggle"
         @open-anyway="toggle($event, true)"
         @remove="remove"
