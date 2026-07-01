@@ -7,6 +7,7 @@ import AgentsSidebar from '../components/agents/AgentsSidebar.vue';
 import EditorTabs from '../components/editor/EditorTabs.vue';
 import WorkspaceEditor from '../components/editor/WorkspaceEditor.vue';
 import WorkspaceHealth from '../components/health/WorkspaceHealth.vue';
+import TitleBar from '../components/layout/TitleBar.vue';
 import NotesPanel from '../components/notes/NotesPanel.vue';
 import FileExplorer from '../components/sidebar/FileExplorer.vue';
 import GitPanel from '../components/sidebar/GitPanel.vue';
@@ -20,6 +21,7 @@ import { useHealthStore } from '../stores/health.store';
 import { useNotesStore } from '../stores/notes.store';
 import { useTerminalStore } from '../stores/terminal.store';
 import { useEditorStore } from '../stores/editor.store';
+import { useProjectsStore } from '../stores/projects.store';
 import SettingsModal from '../components/settings/SettingsModal.vue';
 
 type BeforeInstallPromptEvent = Event & {
@@ -42,9 +44,11 @@ const health = useHealthStore();
 const notes = useNotesStore();
 const editor = useEditorStore();
 const terminals = useTerminalStore();
+const projects = useProjectsStore();
 const route = useRoute();
 let mobileMediaQuery: MediaQueryList | null = null;
 const projectName = computed(() => String(route.params.projectName ?? ''));
+const titleProjectName = computed(() => projects.projects.find((project) => project.folderName === projectName.value)?.name ?? projectName.value);
 
 const sidebarResize = useResizable({
   key: 'vibeide.sidebar.size',
@@ -121,6 +125,7 @@ function handleGlobalKeys(event: KeyboardEvent) {
 }
 
 onMounted(async () => {
+  if (projects.projects.length === 0) void projects.loadProjects();
   files.setProject(projectName.value);
   git.setProject(projectName.value);
   agents.setProject(projectName.value);
@@ -150,17 +155,19 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div
-    class="ide-shell h-screen w-screen bg-ide-main text-[13px] text-ide-text"
-    :style="
-      !isMobile
-        ? {
-            '--sidebar-width': `${sidebarResize.width.value}px`,
-            '--terminal-height': `${terminalResize.height.value}px`
-          }
-        : undefined
-    "
-  >
+  <div class="ide-window h-screen w-screen bg-ide-main text-ide-text">
+    <TitleBar :project-name="titleProjectName" />
+    <div
+      class="ide-shell h-full w-full bg-ide-main text-[13px] text-ide-text"
+      :style="
+        !isMobile
+          ? {
+              '--sidebar-width': `${sidebarResize.width.value}px`,
+              '--terminal-height': `${terminalResize.height.value}px`
+            }
+          : undefined
+      "
+    >
     <header class="mobile-header">
       <button class="touch-button" title="Open sidebar" @click="drawerOpen = true">
         <Menu :size="22" />
@@ -263,6 +270,7 @@ onBeforeUnmount(() => {
     </nav>
 
     <div v-if="sidebarResize.isResizing.value || terminalResize.isResizing.value" class="resize-shield" />
-    <SettingsModal :open="settingsOpen" @close="settingsOpen = false" />
+      <SettingsModal :open="settingsOpen" @close="settingsOpen = false" />
+    </div>
   </div>
 </template>

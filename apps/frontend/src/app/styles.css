@@ -66,6 +66,58 @@ input:focus-visible {
   user-select: none;
 }
 
+.ide-window {
+  display: grid;
+  grid-template-rows: 32px minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.title-bar {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid #3c3c3c;
+  background: #181818;
+  padding: 0 10px;
+  color: #cccccc;
+  user-select: none;
+}
+
+.title-bar-logo {
+  width: 19px;
+  height: 19px;
+  flex: 0 0 auto;
+}
+
+.title-bar-text {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 32px;
+}
+
+.title-bar-app {
+  flex: 0 0 auto;
+  color: #cccccc;
+}
+
+.title-bar-separator {
+  flex: 0 0 auto;
+  color: #858585;
+}
+
+.title-bar-project {
+  min-width: 0;
+  overflow: hidden;
+  color: #cccccc;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .editor-area {
   display: grid;
   grid-template-rows: 32px 36px minmax(0, 1fr) 4px var(--terminal-height, 280px);
