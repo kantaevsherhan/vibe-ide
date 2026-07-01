@@ -160,12 +160,13 @@ export class AgentsManager {
     }
 
     ptyProcess.onData((data) => {
+      const cleanData = this.queue.cleanOutput(data);
       void this.queue.appendLog(projectPath, task.id, data);
       void this.updateSession(projectPath, session.id, {
-        lastOutput: data.slice(-2000),
+        lastOutput: cleanData.slice(-2000),
         updatedAt: new Date().toISOString()
       });
-      this.broadcast(projectName, { type: 'agent_output', taskId: task.id, agentId: agent.id, data });
+      this.broadcast(projectName, { type: 'agent_output', taskId: task.id, agentId: agent.id, data: cleanData });
     });
 
     ptyProcess.onExit((event) => {

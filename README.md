@@ -236,7 +236,7 @@ Example:
 {
   "agents": [
     { "id": "claude", "name": "Claude Code", "command": "claude", "args": ["-p", "{prompt}"], "inputMode": "argument", "enabled": true },
-    { "id": "codex", "name": "Codex", "command": "codex", "args": ["exec", "{prompt}"], "inputMode": "argument", "enabled": true },
+    { "id": "codex", "name": "Codex", "command": "codex", "args": ["exec", "--sandbox", "workspace-write", "--ask-for-approval", "never", "{prompt}"], "inputMode": "argument", "enabled": true },
     { "id": "gemini", "name": "Gemini", "command": "gemini", "args": ["-p", "{prompt}"], "inputMode": "argument", "enabled": true },
     { "id": "custom", "name": "Custom Agent", "command": "npx", "args": ["my-agent"], "inputMode": "stdin", "enabled": false }
   ],
@@ -277,7 +277,7 @@ Use `{prompt}` or `{promptFile}` placeholders in `args`:
       "id": "codex",
       "name": "Codex",
       "command": "codex",
-      "args": ["exec", "{prompt}"],
+      "args": ["exec", "--sandbox", "workspace-write", "--ask-for-approval", "never", "{prompt}"],
       "inputMode": "argument",
       "enabled": true
     },
@@ -294,6 +294,8 @@ Use `{prompt}` or `{promptFile}` placeholders in `args`:
 ```
 
 The Agents panel shows the resolved CLI path and startup errors, which helps catch PATH problems when the backend runs from an installer or service.
+
+Codex is configured with `--sandbox workspace-write`, so it can read and write inside the opened project while staying constrained to that workspace. If your installed Codex CLI uses different flag names, edit `config/agents.config.json` and keep the same idea: project write access, no access outside the project.
 
 The frontend cannot pass arbitrary commands or working directories. It can only send prompts to agents declared in `agents.config.json`.
 

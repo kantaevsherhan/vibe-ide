@@ -4,7 +4,14 @@ import type { AgentConfig, AgentsConfigFile } from './agents.types.js';
 
 const defaultAgents: AgentConfig[] = [
   { id: 'claude', name: 'Claude Code', command: 'claude', args: ['-p', '{prompt}'], inputMode: 'argument', enabled: true },
-  { id: 'codex', name: 'Codex', command: 'codex', args: ['exec', '{prompt}'], inputMode: 'argument', enabled: true },
+  {
+    id: 'codex',
+    name: 'Codex',
+    command: 'codex',
+    args: ['exec', '--sandbox', 'workspace-write', '--ask-for-approval', 'never', '{prompt}'],
+    inputMode: 'argument',
+    enabled: true
+  },
   { id: 'gemini', name: 'Gemini', command: 'gemini', args: ['-p', '{prompt}'], inputMode: 'argument', enabled: true },
   { id: 'custom', name: 'Custom Agent', command: 'npx', args: ['my-agent'], inputMode: 'stdin', enabled: false }
 ];
@@ -40,9 +47,14 @@ export class AgentsConfigService {
     return {
       agents: (partial.agents ?? defaultAgents).map((agent) => {
         const fallback = defaultAgents.find((item) => item.id === agent.id);
+        const needsKnownAgentArgsUpgrade =
+          agent.id === 'codex' &&
+          (!agent.args ||
+            agent.args.length === 0 ||
+            (agent.args.length === 2 && agent.args[0] === 'exec' && agent.args[1] === '{prompt}'));
         return {
           ...agent,
-          args: agent.args && agent.args.length > 0 ? agent.args : (fallback?.args ?? []),
+          args: needsKnownAgentArgsUpgrade ? (fallback?.args ?? []) : agent.args && agent.args.length > 0 ? agent.args : (fallback?.args ?? []),
           inputMode: agent.inputMode ?? fallback?.inputMode ?? 'stdin'
         };
       }),

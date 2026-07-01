@@ -3,6 +3,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { AgentSession, AgentTask } from './agents.types.js';
 
+const ansiPattern =
+  /(?:\u001B\][\s\S]*?(?:\u0007|\u001B\\))|(?:[\u001B\u009B][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[a-zA-Z\d]*)*)?\u0007)|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~])))/g;
+
 export class TaskQueueService {
   async ensureProjectState(projectPath: string) {
     await fs.mkdir(this.logsDir(projectPath), { recursive: true });
@@ -86,11 +89,16 @@ export class TaskQueueService {
   }
 
   async readLog(projectPath: string, taskId: string) {
-    return fs.readFile(this.logPath(projectPath, taskId), 'utf8').catch(() => '');
+    const raw = await fs.readFile(this.logPath(projectPath, taskId), 'utf8').catch(() => '');
+    return this.cleanOutput(raw);
   }
 
   buildPrompt(context: string, task: AgentTask) {
-    return `Project context:\n${context}\n\nCurrent task:\n${task.prompt}\n\nRules:\n- Work only inside the current project\n- Do not delete files unless necessary\n- After changes, briefly explain what changed\n`;
+    return `Project context:\n${context}\n\nCurrent task:\n${task.prompt}\n\nRules:\n- You have full read/write access inside the current project directory\n- Work only inside the current project directory\n- Do not access, edit, create, or delete files outside the current project\n- Do not delete files unless necessary\n- After changes, briefly explain what changed\n`;
+  }
+
+  cleanOutput(output: string) {
+    return output.replace(ansiPattern, '');
   }
 
   tasksPath(projectPath: string) {
