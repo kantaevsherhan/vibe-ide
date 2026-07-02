@@ -88,23 +88,146 @@ http://127.0.0.1:8080
 
 Do not open `apps/frontend/dist/index.html` directly as a file. The built frontend must be served by the backend so API routes, auth cookies, and WebSocket terminals work.
 
+## Icons
+
+The source logo is stored at:
+
+```txt
+apps/frontend/public/logo.png
+```
+
+Generated browser and PWA icons live in `apps/frontend/public`:
+
+```txt
+favicon.ico
+favicon-16x16.png
+favicon-32x32.png
+favicon-48x48.png
+apple-touch-icon.png
+android-chrome-192x192.png
+android-chrome-512x512.png
+mstile-150x150.png
+manifest.webmanifest
+```
+
+Extra desktop packaging PNG files are stored in:
+
+```txt
+apps/frontend/public/icons/linux/
+apps/frontend/public/icons/macos/
+```
+
+To replace the project logo, replace `apps/frontend/public/logo.png`, regenerate the icon sizes from it, and keep `manifest.webmanifest` pointed at the Android/PWA icon files.
+
+## Mobile App (Capacitor)
+
+The Vue frontend can be packaged as native Android and iOS apps with Capacitor. The backend architecture is unchanged; native apps still connect to the same VibeIDE backend.
+
+For native builds, point the app at your VibeIDE backend:
+
+```bash
+VITE_API_BASE_URL=https://your-vibeide-server.example.com npm run cap:sync
+```
+
+Without `VITE_API_BASE_URL`, the web build keeps using same-origin `/api` and `/ws` routes.
+
+Sync native projects after frontend changes:
+
+```bash
+npm run cap:sync
+```
+
+Open Android Studio:
+
+```bash
+npm run android
+```
+
+Build Android debug APK:
+
+```bash
+npm run android:debug
+```
+
+On Windows:
+
+```bash
+npm run android:debug:win
+```
+
+The debug APK is generated at:
+
+```txt
+apps/frontend/android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+Open iOS in Xcode on macOS:
+
+```bash
+npm run ios
+```
+
+Capacitor resources are stored in:
+
+```txt
+apps/frontend/resources/icon.png
+apps/frontend/resources/splash.png
+```
+
 ## Manual Update
 
 After logging in, open the Projects page and click `Check for Updates`. VibeIDE starts a background update job, shows live logs, and keeps the HTTP request short.
 
-The backend runs only the fixed script at `scripts/update.sh`:
+The update job uses a fixed backend pipeline:
 
 ```txt
 git fetch origin
-git status --porcelain
-git pull --ff-only
+compare HEAD with origin/main
+git pull --ff-only origin main
 npm install
 npm run build
 ```
 
-If local changes are detected, the update stops and asks you to commit, stash, or remove them first. If updates were installed, restart the service manually so the running backend process uses the rebuilt files.
+Logs are stored in:
 
-Restart examples:
+```txt
+.vibeide/system/update/<job-id>.log
+```
+
+Runtime is detected automatically when possible. You can also configure it in:
+
+```txt
+config/runtime.json
+```
+
+Example:
+
+```json
+{
+  "runtime": "systemd",
+  "service": "vibeide"
+}
+```
+
+Supported runtime values:
+
+```txt
+manual
+systemd
+pm2
+docker
+```
+
+Restart behavior:
+
+- `manual`: update finishes and asks you to restart VibeIDE manually.
+- `pm2`: VibeIDE schedules `pm2 restart <processName>`.
+- `systemd`: VibeIDE schedules `systemctl restart <service>`.
+- `docker`: VibeIDE never runs Docker commands and asks you to restart the container.
+
+Local generated files such as `.vibeide/`, `logs/`, `data/`, `storage/`, `config/settings.json`, and `config/runtime.json` do not block updates. Local source code changes still block the safe default update mode.
+
+Manual restart examples:
 
 ```bash
 sudo systemctl restart vibeide

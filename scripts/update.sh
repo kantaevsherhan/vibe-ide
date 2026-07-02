@@ -4,16 +4,19 @@ set -euo pipefail
 echo "Started at $(date -Is)"
 echo "Checking git updates..."
 
-if [ -n "$(git status --porcelain)" ]; then
+LOCAL_CHANGES=$(git status --porcelain | grep -Ev '^[ MADRCU?!]{2}(\.vibeide/|logs/|data/|storage/|config/settings\.json|config/runtime\.json|config/agents\.config\.json)' || true)
+
+if [ -n "$LOCAL_CHANGES" ]; then
   echo "Update stopped: local changes detected."
   echo "Please commit, stash or remove local changes."
+  echo "$LOCAL_CHANGES"
   exit 1
 fi
 
 git fetch origin
 
 LOCAL=$(git rev-parse HEAD)
-REMOTE=$(git rev-parse @{u})
+REMOTE=$(git rev-parse origin/main)
 
 if [ "$LOCAL" = "$REMOTE" ]; then
   echo "Already up to date."
@@ -22,7 +25,7 @@ if [ "$LOCAL" = "$REMOTE" ]; then
 fi
 
 echo "Pulling latest changes..."
-git pull --ff-only
+git pull --ff-only origin main
 
 echo "Installing dependencies..."
 npm install

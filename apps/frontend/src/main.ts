@@ -5,6 +5,7 @@ import App from './App.vue';
 import IdeLayout from './layouts/IdeLayout.vue';
 import LoginPage from './pages/LoginPage.vue';
 import ProjectsPage from './pages/ProjectsPage.vue';
+import { initCapacitor } from './capacitor/initCapacitor';
 import { useAuthStore } from './stores/auth.store';
 import { useSettingsStore } from './stores/settings.store';
 import './app/styles.css';
@@ -32,6 +33,7 @@ router.beforeEach(async (to) => {
 });
 
 createApp(App).use(pinia).use(router).mount('#app');
+void initCapacitor();
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {

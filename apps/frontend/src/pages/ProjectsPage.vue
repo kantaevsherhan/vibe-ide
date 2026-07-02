@@ -23,6 +23,7 @@ const searchQuery = ref('');
 
 onMounted(() => {
   void projects.loadProjects();
+  void system.loadRuntime();
 });
 
 const filteredProjects = computed(() => {
@@ -30,6 +31,8 @@ const filteredProjects = computed(() => {
   if (!query) return projects.projects;
   return projects.projects.filter((project) => project.name.toLowerCase().includes(query));
 });
+
+const hasLocalSourceChanges = computed(() => (system.error ?? system.message).includes('Local source changes detected'));
 
 async function createProject(input: CreateProjectInput) {
   creatingProject.value = true;
@@ -62,7 +65,7 @@ async function confirmDeleteProject(folderName: string) {
           <p class="text-sm text-ide-muted">Persistent AI workspaces on your server.</p>
         </div>
         <div class="flex gap-2">
-          <button class="desktop-action-button h-9 gap-2 px-3" :disabled="system.loading" @click="system.checkUpdate">
+          <button class="desktop-action-button h-9 gap-2 px-3" :disabled="system.loading" @click="system.checkUpdate()">
             <DownloadCloud :size="16" />
             {{ system.buttonLabel }}
           </button>
@@ -84,13 +87,29 @@ async function confirmDeleteProject(folderName: string) {
       <section v-if="system.logs || system.message" class="border border-ide-border bg-ide-sidebar p-3">
         <div class="mb-2 flex items-center justify-between gap-3">
           <span class="text-xs uppercase tracking-wide text-ide-muted">Manual Update</span>
-          <span class="text-xs" :class="system.status === 'error' ? 'text-red-300' : system.status === 'done' ? 'text-green-300' : 'text-ide-muted'">
+          <span class="text-xs" :class="system.status === 'failed' ? 'text-red-300' : system.status === 'finished' ? 'text-green-300' : 'text-ide-muted'">
             {{ system.message }}
           </span>
         </div>
+        <div class="mb-2 grid gap-2 text-xs text-ide-muted md:grid-cols-4">
+          <div>Current Version: <span class="font-mono text-ide-text">{{ system.currentVersion?.slice(0, 8) ?? 'Unknown' }}</span></div>
+          <div>Latest Version: <span class="font-mono text-ide-text">{{ system.latestVersion?.slice(0, 8) ?? 'Unknown' }}</span></div>
+          <div>Runtime: <span class="text-ide-text">{{ system.runtime?.runtime ?? 'manual' }}</span></div>
+          <div>Step: <span class="text-ide-text">{{ system.status }}</span></div>
+        </div>
+        <div v-if="system.restartStatus" class="mb-2 text-xs text-ide-muted">
+          Restart Status: <span class="text-ide-text">{{ system.restartStatus }}</span>
+        </div>
         <pre class="max-h-60 overflow-auto whitespace-pre-wrap bg-[#181818] p-3 font-mono text-[11px] leading-5 text-ide-text thin-scrollbar">{{ system.logs }}</pre>
-        <div v-if="system.status === 'done'" class="mt-3 border border-green-500/40 bg-green-500/10 p-3 text-sm text-green-200">
-          Update completed successfully. Please restart VibeIDE service to apply changes.
+        <div v-if="system.status === 'finished'" class="mt-3 border border-green-500/40 bg-green-500/10 p-3 text-sm text-green-200">
+          {{ system.message }}
+        </div>
+        <div v-if="system.status === 'failed'" class="mt-3 border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">
+          {{ system.error ?? system.message }}
+          <div v-if="hasLocalSourceChanges" class="mt-3 flex flex-wrap gap-2">
+            <button class="desktop-action-button h-8 px-3" @click="system.checkUpdate('stash')">Stash & Update</button>
+            <button class="desktop-action-button h-8 px-3 border-red-500/60 text-red-200" @click="system.checkUpdate('force')">Force Update</button>
+          </div>
         </div>
       </section>
 

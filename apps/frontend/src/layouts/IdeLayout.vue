@@ -124,6 +124,15 @@ function handleGlobalKeys(event: KeyboardEvent) {
   }
 }
 
+function reloadWorkspaceState() {
+  void files.refresh();
+  void notes.refresh();
+  void git.refresh();
+  void agents.refresh();
+  void health.refresh();
+  terminals.connect();
+}
+
 onMounted(async () => {
   if (projects.projects.length === 0) void projects.loadProjects();
   files.setProject(projectName.value);
@@ -144,6 +153,7 @@ onMounted(async () => {
   document.addEventListener('fullscreenchange', syncFullscreenState);
   window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
   document.addEventListener('keydown', handleGlobalKeys, true);
+  window.addEventListener('vibeide:backend-reconnected', reloadWorkspaceState);
 });
 
 onBeforeUnmount(() => {
@@ -151,6 +161,7 @@ onBeforeUnmount(() => {
   document.removeEventListener('fullscreenchange', syncFullscreenState);
   window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt);
   document.removeEventListener('keydown', handleGlobalKeys, true);
+  window.removeEventListener('vibeide:backend-reconnected', reloadWorkspaceState);
 });
 </script>
 

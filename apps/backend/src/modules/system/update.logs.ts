@@ -5,7 +5,7 @@ export class UpdateLogs {
   readonly root: string;
 
   constructor(projectRoot: string) {
-    this.root = path.join(projectRoot, 'data', 'update-logs');
+    this.root = path.join(projectRoot, '.vibeide', 'system', 'update');
   }
 
   async pathFor(jobId: string) {

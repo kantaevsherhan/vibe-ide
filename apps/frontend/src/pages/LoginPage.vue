@@ -2,16 +2,37 @@
 import { LockKeyhole } from '@lucide/vue';
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { customBackendEnabledKey, customBackendUrlKey, isValidBackendUrl, normalizeBackendUrl } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
 
 const router = useRouter();
 const auth = useAuthStore();
 const username = ref('admin');
 const password = ref('');
+const useCustomBackend = ref(localStorage.getItem(customBackendEnabledKey) === 'true');
+const backendUrl = ref(localStorage.getItem(customBackendUrlKey) ?? '');
+const backendError = ref('');
 
 async function submit() {
-  await auth.login(username.value, password.value);
-  await router.push('/projects');
+  backendError.value = '';
+  const normalizedUrl = normalizeBackendUrl(backendUrl.value);
+
+  if (useCustomBackend.value && !isValidBackendUrl(normalizedUrl)) {
+    backendError.value = 'Please enter a valid backend URL.';
+    return;
+  }
+
+  localStorage.setItem(customBackendEnabledKey, String(useCustomBackend.value));
+  if (normalizedUrl) localStorage.setItem(customBackendUrlKey, normalizedUrl);
+
+  try {
+    await auth.login(username.value, password.value);
+    await router.push('/projects');
+  } catch (caught) {
+    if (useCustomBackend.value && caught instanceof TypeError) {
+      backendError.value = 'Cannot connect to custom backend.';
+    }
+  }
 }
 </script>
 
@@ -49,7 +70,25 @@ async function submit() {
         />
       </label>
 
-      <p v-if="auth.error" class="mb-4 border border-red-500/40 bg-red-500/10 p-2 text-sm text-red-200">
+      <label class="mb-3 flex items-center gap-2 text-sm text-ide-muted">
+        <input v-model="useCustomBackend" type="checkbox" />
+        Use custom backend
+      </label>
+
+      <label v-if="useCustomBackend" class="mb-4 block">
+        <span class="mb-1 block text-xs uppercase tracking-wide text-ide-muted">Backend URL</span>
+        <input
+          v-model="backendUrl"
+          class="h-9 w-full border border-ide-border bg-ide-panel px-3 text-ide-text outline-none focus:border-ide-accent"
+          placeholder="https://your-backend-url.com"
+        />
+      </label>
+
+      <p v-if="backendError" class="mb-4 border border-red-500/40 bg-red-500/10 p-2 text-sm text-red-200">
+        {{ backendError }}
+      </p>
+
+      <p v-else-if="auth.error" class="mb-4 border border-red-500/40 bg-red-500/10 p-2 text-sm text-red-200">
         {{ auth.error }}
       </p>
 

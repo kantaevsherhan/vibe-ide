@@ -1,4 +1,5 @@
 import type { TerminalMessage, TerminalOutputMessage } from '../types/terminal';
+import { wsUrl } from './api';
 
 export class TerminalSocket {
   private socket?: WebSocket;
@@ -14,12 +15,9 @@ export class TerminalSocket {
       this.socket.close();
     }
 
-    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     this.projectName = projectName;
     this.queue = [];
-    this.socket = new WebSocket(
-      `${protocol}://${window.location.host}/ws/terminal?projectName=${encodeURIComponent(projectName)}`
-    );
+    this.socket = new WebSocket(wsUrl(`/ws/terminal?projectName=${encodeURIComponent(projectName)}`));
     this.socket.addEventListener('open', () => {
       for (const message of this.queue.splice(0)) this.send(message);
     });

@@ -1,6 +1,13 @@
 import { apiRequest } from './api';
 
-export type UpdateJobStatus = 'idle' | 'checking' | 'updating' | 'installing' | 'building' | 'done' | 'error';
+export type UpdateJobStatus = 'idle' | 'checking' | 'downloading' | 'installing' | 'building' | 'waiting_restart' | 'restarting' | 'finished' | 'failed';
+export type UpdateStrategy = 'cancel' | 'stash' | 'force';
+export type RuntimeInfo = {
+  runtime: 'manual' | 'pm2' | 'systemd' | 'docker' | 'unknown';
+  service?: string;
+  processName?: string;
+  source: 'config' | 'detected' | 'default';
+};
 
 export type StartUpdateResponse = {
   jobId: string;
@@ -15,13 +22,21 @@ export type UpdateStatusResponse = {
   startedAt: string;
   finishedAt?: string;
   hasUpdates?: boolean;
+  currentVersion?: string;
+  latestVersion?: string;
+  runtime?: RuntimeInfo;
+  restartStatus?: string;
   error?: string;
 };
 
 export const systemApi = {
-  startUpdate() {
-    return apiRequest<StartUpdateResponse>('/api/system/update/start', {
-      method: 'POST'
+  runtime() {
+    return apiRequest<RuntimeInfo>('/api/system/runtime');
+  },
+  startUpdate(strategy: UpdateStrategy = 'cancel') {
+    return apiRequest<StartUpdateResponse>('/api/system/update', {
+      method: 'POST',
+      body: JSON.stringify({ strategy })
     });
   },
   updateStatus(jobId: string) {

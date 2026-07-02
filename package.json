@@ -11,7 +11,13 @@
     "dev": "concurrently -k -n backend,frontend \"npm run dev --workspace apps/backend\" \"npm run dev --workspace apps/frontend\"",
     "build": "npm run build --workspace apps/frontend && npm run build --workspace apps/backend",
     "start": "npm run start --workspace apps/backend",
-    "typecheck": "npm run typecheck --workspaces"
+    "typecheck": "npm run typecheck --workspaces",
+    "cap:sync": "npm run cap:sync --workspace apps/frontend",
+    "android": "npm run android --workspace apps/frontend",
+    "ios": "npm run ios --workspace apps/frontend",
+    "android:debug": "npm run android:debug --workspace apps/frontend",
+    "android:release": "npm run android:release --workspace apps/frontend",
+    "android:debug:win": "npm run android:debug:win --workspace apps/frontend"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
