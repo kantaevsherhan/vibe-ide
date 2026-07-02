@@ -19,8 +19,8 @@ export async function registerAuthRoutes(app: FastifyInstance, auth: AuthService
     },
     async (request, reply) => {
       const user = auth.login(request.body.username, request.body.password);
-      auth.createSession(reply, user);
-      return { user };
+      const token = auth.createSession(reply, user);
+      return { user, token };
     }
   );
 

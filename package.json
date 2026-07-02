@@ -14,7 +14,9 @@
     "typecheck": "npm run typecheck --workspaces",
     "cap:sync": "npm run cap:sync --workspace apps/frontend",
     "android": "npm run android --workspace apps/frontend",
+    "android:open": "npm run android:open --workspace apps/frontend",
     "ios": "npm run ios --workspace apps/frontend",
+    "ios:open": "npm run ios:open --workspace apps/frontend",
     "android:debug": "npm run android:debug --workspace apps/frontend",
     "android:release": "npm run android:release --workspace apps/frontend",
     "android:debug:win": "npm run android:debug:win --workspace apps/frontend"

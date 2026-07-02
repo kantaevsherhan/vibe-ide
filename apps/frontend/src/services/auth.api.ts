@@ -5,9 +5,14 @@ export type AuthUser = {
   email: string;
 };
 
+export type LoginResponse = {
+  user: AuthUser;
+  token?: string;
+};
+
 export const authApi = {
   login(username: string, password: string) {
-    return apiRequest<{ user: AuthUser }>('/api/auth/login', {
+    return apiRequest<LoginResponse>('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ username, password })
     });

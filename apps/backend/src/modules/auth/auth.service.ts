@@ -38,17 +38,18 @@ export class AuthService {
       path: '/',
       maxAge: 60 * 60 * 24 * 7
     });
+    return token;
   }
 
   clearSession(request: FastifyRequest, reply: FastifyReply) {
-    const token = request.cookies?.[sessionCookieName];
+    const token = request.cookies?.[sessionCookieName] ?? this.getBearerToken(request) ?? this.getQueryToken(request);
     if (token) this.sessions.delete(token);
     reply.clearCookie(sessionCookieName, { path: '/' });
   }
 
   getUser(request: FastifyRequest) {
     if (!this.config.auth.enabled) return this.configUser();
-    const token = request.cookies?.[sessionCookieName];
+    const token = request.cookies?.[sessionCookieName] ?? this.getBearerToken(request) ?? this.getQueryToken(request);
     if (!token) return null;
     return this.sessions.get(token) ?? null;
   }
@@ -62,5 +63,16 @@ export class AuthService {
       username: this.config.auth.username,
       email: this.config.auth.email
     };
+  }
+
+  private getBearerToken(request: FastifyRequest) {
+    const authorization = request.headers.authorization;
+    if (!authorization?.startsWith('Bearer ')) return null;
+    return authorization.slice('Bearer '.length).trim() || null;
+  }
+
+  private getQueryToken(request: FastifyRequest) {
+    const url = new URL(request.raw.url ?? '/', 'http://localhost');
+    return url.searchParams.get('authToken');
   }
 }

@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
+import { clearApiAuthToken, isCrossOriginApi, setApiAuthToken } from '../services/api';
 import { authApi, type AuthUser } from '../services/auth.api';
 
 export const useAuthStore = defineStore('auth', () => {
@@ -25,7 +26,13 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true;
     error.value = null;
     try {
-      user.value = (await authApi.login(username, password)).user;
+      const response = await authApi.login(username, password);
+      user.value = response.user;
+      if (isCrossOriginApi()) {
+        setApiAuthToken(response.token ?? null);
+      } else {
+        clearApiAuthToken();
+      }
       checked.value = true;
     } catch (caught) {
       error.value = caught instanceof Error ? caught.message : 'Login failed.';
@@ -36,9 +43,13 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function logout() {
-    await authApi.logout();
-    user.value = null;
-    checked.value = true;
+    try {
+      await authApi.logout();
+    } finally {
+      clearApiAuthToken();
+      user.value = null;
+      checked.value = true;
+    }
   }
 
   return { user, checked, loading, error, check, login, logout };

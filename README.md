@@ -119,17 +119,24 @@ apps/frontend/public/icons/macos/
 
 To replace the project logo, replace `apps/frontend/public/logo.png`, regenerate the icon sizes from it, and keep `manifest.webmanifest` pointed at the Android/PWA icon files.
 
-## Mobile App (Capacitor)
+## Mobile / Capacitor
 
 The Vue frontend can be packaged as native Android and iOS apps with Capacitor. The backend architecture is unchanged; native apps still connect to the same VibeIDE backend.
 
-For native builds, point the app at your VibeIDE backend:
+In the browser, VibeIDE uses the normal `fetch` API. In Android and iOS builds, API requests use Capacitor native HTTP for more stable mobile networking.
+
+Native apps cannot use relative `/api` routes unless a backend URL is configured. Use one of these options:
+
+- On the Login page, enable `Use custom backend` and enter your backend URL.
+- Or build with `VITE_API_BASE_URL`:
 
 ```bash
 VITE_API_BASE_URL=https://your-vibeide-server.example.com npm run cap:sync
 ```
 
-Without `VITE_API_BASE_URL`, the web build keeps using same-origin `/api` and `/ws` routes.
+Without a backend URL, the mobile app shows `Backend URL is required for mobile app.` The web build keeps using same-origin `/api` and `/ws` routes.
+
+The native app always locks to landscape orientation on Android, iPhone, and iPad.
 
 Sync native projects after frontend changes:
 
@@ -140,7 +147,7 @@ npm run cap:sync
 Open Android Studio:
 
 ```bash
-npm run android
+npm run android:open
 ```
 
 Build Android debug APK:
@@ -164,7 +171,7 @@ apps/frontend/android/app/build/outputs/apk/debug/app-debug.apk
 Open iOS in Xcode on macOS:
 
 ```bash
-npm run ios
+npm run ios:open
 ```
 
 Capacitor resources are stored in:
