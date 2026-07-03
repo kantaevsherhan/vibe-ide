@@ -6,16 +6,17 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vue-tsc --noEmit && vite build",
+    "build:capacitor": "vue-tsc --noEmit && vite build --mode capacitor",
     "preview": "vite preview --host 0.0.0.0",
     "typecheck": "vue-tsc --noEmit",
-    "cap:sync": "npm run build && npx cap sync",
-    "android": "npm run build && npx cap sync android && npx cap open android",
-    "android:open": "npm run build && npx cap sync android && npx cap open android",
-    "ios": "npm run build && npx cap sync ios && npx cap open ios",
-    "ios:open": "npm run build && npx cap sync ios && npx cap open ios",
-    "android:debug": "npm run build && npx cap sync android && cd android && ./gradlew assembleDebug",
-    "android:release": "npm run build && npx cap sync android && cd android && ./gradlew assembleRelease",
-    "android:debug:win": "npm run build && npx cap sync android && cd android && gradlew.bat assembleDebug"
+    "cap:sync": "npm run build:capacitor && npx cap sync",
+    "android": "npm run build:capacitor && npx cap sync android && npx cap open android",
+    "android:open": "npm run build:capacitor && npx cap sync android && npx cap open android",
+    "ios": "npm run build:capacitor && npx cap sync ios && npx cap open ios",
+    "ios:open": "npm run build:capacitor && npx cap sync ios && npx cap open ios",
+    "android:debug": "npm run build:capacitor && npx cap sync android && cd android && ./gradlew assembleDebug",
+    "android:release": "npm run build:capacitor && npx cap sync android && cd android && ./gradlew assembleRelease",
+    "android:debug:win": "npm run build:capacitor && npx cap sync android && cd android && gradlew.bat assembleDebug"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.1",
