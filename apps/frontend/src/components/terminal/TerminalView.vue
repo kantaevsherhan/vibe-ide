@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { FitAddon } from '@xterm/addon-fit';
 import { Terminal } from '@xterm/xterm';
-import { Plus } from '@lucide/vue';
+import { X } from '@lucide/vue';
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { resizeEventName } from '../../composables/useResizable';
 import { useTerminalStore } from '../../stores/terminal.store';
 
 const terminals = useTerminalStore();
+defineEmits<{
+  closePanel: [];
+}>();
 const container = ref<HTMLElement | null>(null);
 let xterm: Terminal | null = null;
 let fitAddon: FitAddon | null = null;
@@ -98,8 +101,8 @@ onBeforeUnmount(() => {
     <header class="flex items-center justify-between border-b border-ide-border px-3 text-[11px] uppercase tracking-wide text-ide-muted">
       <span>Terminal</span>
       <div class="flex items-center gap-1">
-        <button class="grid h-6 w-6 place-items-center rounded hover:bg-white/10 hover:text-ide-text" title="New terminal" @click="terminals.create">
-          <Plus :size="15" />
+        <button class="grid h-6 w-6 place-items-center rounded hover:bg-white/10 hover:text-ide-text" title="Hide terminal panel" @click="$emit('closePanel')">
+          <X :size="15" />
         </button>
         <span v-if="terminals.activeSession" class="normal-case tracking-normal">{{ terminals.activeSession.name }}</span>
       </div>

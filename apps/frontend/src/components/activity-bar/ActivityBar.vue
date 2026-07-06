@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router';
 const model = defineModel<'files' | 'git' | 'terminal' | 'notes'>({ required: true });
 defineEmits<{
   settings: [];
+  selectView: [view: 'files' | 'git' | 'terminal' | 'notes'];
 }>();
 const router = useRouter();
 
@@ -28,13 +29,14 @@ async function exitProject() {
       :title="item.label"
       class="relative grid h-11 w-full place-items-center font-mono text-[15px] text-ide-muted transition hover:text-ide-text"
       :class="{ 'text-ide-text': model === item.id }"
-      @click="model = item.id"
+      @click="$emit('selectView', item.id)"
     >
       <span
         v-if="model === item.id"
         class="absolute left-0 top-2 h-7 w-0.5 rounded-r bg-ide-accent shadow-[0_0_12px_rgba(0,122,204,0.9)]"
       />
       <component :is="item.icon" :size="22" :stroke-width="1.8" />
+      <span class="sr-only">{{ item.label }}</span>
     </button>
     <button
       title="Settings"

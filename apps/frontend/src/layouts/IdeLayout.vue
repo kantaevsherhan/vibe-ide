@@ -38,6 +38,9 @@ const isMobile = ref(false);
 const deferredInstallPrompt = ref<BeforeInstallPromptEvent | null>(null);
 const settingsOpen = ref(false);
 const mobileAgentsOpen = ref(false);
+const desktopSidebarVisible = ref(true);
+const desktopAgentsVisible = ref(true);
+const terminalPanelVisible = ref(true);
 const files = useFilesStore();
 const git = useGitStore();
 const agents = useAgentsStore();
@@ -82,6 +85,21 @@ const navItems = [
 function selectMobileView(view: IdeView) {
   activeView.value = view;
   drawerOpen.value = view !== 'terminal';
+}
+
+function selectDesktopView(view: IdeView) {
+  if (activeView.value === view) {
+    desktopSidebarVisible.value = !desktopSidebarVisible.value;
+    return;
+  }
+  activeView.value = view;
+  desktopSidebarVisible.value = true;
+}
+
+function showTerminalPanel() {
+  terminalPanelVisible.value = true;
+  activeView.value = 'terminal';
+  desktopSidebarVisible.value = true;
 }
 
 async function enterFullscreen() {
@@ -173,9 +191,11 @@ onBeforeUnmount(() => {
       :style="
         !isMobile
           ? {
-              '--sidebar-width': `${sidebarResize.width.value}px`,
-              '--terminal-height': `${terminalResize.height.value}px`,
-              '--agent-sidebar-width': '380px'
+              '--sidebar-width': desktopSidebarVisible ? `${sidebarResize.width.value}px` : '0px',
+              '--sidebar-handle-width': desktopSidebarVisible ? '4px' : '0px',
+              '--terminal-height': terminalPanelVisible ? `${terminalResize.height.value}px` : '0px',
+              '--terminal-handle-height': terminalPanelVisible ? '4px' : '0px',
+              '--agent-sidebar-width': desktopAgentsVisible ? '380px' : '0px'
             }
           : undefined
       "
@@ -202,9 +222,9 @@ onBeforeUnmount(() => {
       </button>
     </header>
 
-    <ActivityBar v-if="!isMobile" v-model="activeView" class="desktop-activity" @settings="settingsOpen = true" />
+    <ActivityBar v-if="!isMobile" v-model="activeView" class="desktop-activity" @select-view="selectDesktopView" @settings="settingsOpen = true" />
 
-    <aside v-if="!isMobile" class="desktop-sidebar min-w-0 border-r border-ide-border bg-ide-sidebar">
+    <aside v-if="!isMobile && desktopSidebarVisible" class="desktop-sidebar min-w-0 border-r border-ide-border bg-ide-sidebar">
       <FileExplorer v-if="activeView === 'files'" :active="activeView === 'files'" />
       <GitPanel v-else-if="activeView === 'git'" />
       <TerminalPanel v-else-if="activeView === 'terminal'" />
@@ -212,7 +232,7 @@ onBeforeUnmount(() => {
     </aside>
 
     <button
-      v-if="!isMobile"
+      v-if="!isMobile && desktopSidebarVisible"
       class="resize-handle-vertical"
       :class="{ 'resize-handle-active': sidebarResize.isResizing.value }"
       title="Resize sidebar"
@@ -229,6 +249,14 @@ onBeforeUnmount(() => {
           <Download :size="14" />
           Install VibeIDE
         </button>
+        <button class="desktop-action-button w-8" :title="desktopAgentsVisible ? 'Hide AI Agents' : 'Show AI Agents'" @click="desktopAgentsVisible = !desktopAgentsVisible">
+          <Bot :size="15" />
+          <span class="sr-only">{{ desktopAgentsVisible ? 'Hide AI Agents' : 'Show AI Agents' }}</span>
+        </button>
+        <button v-if="!terminalPanelVisible" class="desktop-action-button w-8" title="Show Terminal" @click="showTerminalPanel">
+          <TerminalSquare :size="15" />
+          <span class="sr-only">Show Terminal</span>
+        </button>
         <button v-if="!isFullscreen" class="desktop-action-button w-8" title="Enter Fullscreen" @click="enterFullscreen">
           <Maximize :size="15" />
           <span class="sr-only">Enter Fullscreen</span>
@@ -242,16 +270,16 @@ onBeforeUnmount(() => {
       <EditorTabs />
       <WorkspaceEditor />
       <button
-        v-if="!isMobile"
+        v-if="!isMobile && terminalPanelVisible"
         class="resize-handle-horizontal"
         :class="{ 'resize-handle-active': terminalResize.isResizing.value }"
         title="Resize terminal"
         @mousedown="terminalResize.startResize"
       />
-      <TerminalView v-if="!isMobile" class="desktop-terminal" />
+      <TerminalView v-if="!isMobile && terminalPanelVisible" class="desktop-terminal" @close-panel="terminalPanelVisible = false" />
     </main>
 
-    <AgentChatSidebar v-if="!isMobile" class="desktop-agent-sidebar" />
+    <AgentChatSidebar v-if="!isMobile && desktopAgentsVisible" closable class="desktop-agent-sidebar" @close="desktopAgentsVisible = false" />
 
     <div v-if="isMobile && drawerOpen" class="mobile-scrim" @click="drawerOpen = false" />
     <aside v-if="isMobile" class="mobile-drawer" :class="{ 'is-open': drawerOpen }">

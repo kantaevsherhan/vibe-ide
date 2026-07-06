@@ -5,7 +5,8 @@ const config: CapacitorConfig = {
   appName: 'VibeIDE',
   webDir: 'dist-capacitor',
   server: {
-    androidScheme: 'https'
+    androidScheme: 'https',
+    cleartext: true
   },
   plugins: {
     SplashScreen: {

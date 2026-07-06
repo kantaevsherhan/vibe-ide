@@ -6,6 +6,7 @@ import type { AgentListItem, AgentSession, AgentStatus, AgentTask } from '../../
 
 const props = defineProps<{
   mobile?: boolean;
+  closable?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -193,7 +194,7 @@ async function copyLog() {
         <button class="agent-icon-button" title="Refresh agents" @click="agents.refresh">
           <RotateCw :size="14" />
         </button>
-        <button v-if="props.mobile" class="agent-icon-button" title="Close agents" @click="emit('close')">
+        <button v-if="props.mobile || props.closable" class="agent-icon-button" title="Hide agents" @click="emit('close')">
           <X :size="16" />
         </button>
       </div>

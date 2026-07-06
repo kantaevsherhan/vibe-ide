@@ -61,7 +61,7 @@ input:focus-visible {
 
 .ide-shell {
   display: grid;
-  grid-template-columns: 48px var(--sidebar-width, 280px) 4px minmax(0, 1fr) var(--agent-sidebar-width, 380px);
+  grid-template-columns: 48px var(--sidebar-width, 280px) var(--sidebar-handle-width, 4px) minmax(0, 1fr) var(--agent-sidebar-width, 380px);
   grid-template-rows: minmax(0, 1fr);
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   touch-action: manipulation;
@@ -133,7 +133,7 @@ input:focus-visible {
 
 .editor-area {
   display: grid;
-  grid-template-rows: 32px 36px minmax(0, 1fr) 4px var(--terminal-height, 280px);
+  grid-template-rows: 32px 36px minmax(0, 1fr) var(--terminal-handle-height, 4px) var(--terminal-height, 280px);
 }
 
 .desktop-agent-sidebar {

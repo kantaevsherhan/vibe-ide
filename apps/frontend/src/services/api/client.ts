@@ -90,7 +90,9 @@ export function getWsBaseUrl() {
     return `${protocol}//${location.host}`;
   }
 
-  return apiUrl.replace(/^https:/, 'wss:').replace(/^http:/, 'ws:');
+  const parsed = new URL(apiUrl);
+  parsed.protocol = parsed.protocol === 'https:' ? 'wss:' : 'ws:';
+  return parsed.toString().replace(/\/+$/, '');
 }
 
 export function apiUrl(path: string) {
@@ -103,6 +105,14 @@ export function wsUrl(path: string) {
   const url = new URL(path.startsWith('/') ? path : `/${path}`, getWsBaseUrl());
   const token = getApiAuthToken();
   if (token) url.searchParams.set('authToken', token);
+  if (import.meta.env.DEV) {
+    console.debug('[ws]', {
+      url: url.toString().replace(/authToken=[^&]+/, 'authToken=***'),
+      backendUrl: getApiBaseUrl() || 'same-origin',
+      native: Capacitor.isNativePlatform(),
+      authorizationToken: Boolean(token)
+    });
+  }
   return url.toString();
 }
 
