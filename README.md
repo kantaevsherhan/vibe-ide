@@ -144,6 +144,8 @@ Sync native projects after frontend changes:
 npm run cap:sync
 ```
 
+Native builds use `apps/frontend/dist-capacitor` so the regular web build in `apps/frontend/dist` keeps browser-safe absolute asset URLs.
+
 Open Android Studio:
 
 ```bash

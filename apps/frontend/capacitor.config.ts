@@ -3,7 +3,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'kz.kansherhan.vibeide',
   appName: 'VibeIDE',
-  webDir: 'dist',
+  webDir: 'dist-capacitor',
   server: {
     androidScheme: 'https'
   },
