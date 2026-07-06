@@ -50,6 +50,21 @@ irm https://raw.githubusercontent.com/kantaevsherhan/vibe-ide/main/scripts/insta
 ```
 
 The installer clones or updates the repository, installs dependencies, builds frontend and backend, writes config files, starts VibeIDE in the background, and prints the URL.
+It also enables autostart:
+
+- Linux: systemd user service, with `crontab @reboot` fallback.
+- macOS: LaunchAgent.
+- Windows: Scheduled Task on user logon with restart-on-failure settings.
+
+Disable autostart when needed:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/kantaevsherhan/vibe-ide/main/scripts/install.sh | env VIBEIDE_AUTOSTART=0 bash
+```
+
+```powershell
+.\scripts\install.ps1 -NoAutostart
+```
 
 Default values:
 

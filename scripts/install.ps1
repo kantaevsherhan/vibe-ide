@@ -3,7 +3,8 @@ param(
   [string]$Branch = "main",
   [string]$InstallDir = "$env:USERPROFILE\vibe-ide",
   [int]$Port = 8080,
-  [string]$WorkspaceDir = ""
+  [string]$WorkspaceDir = "",
+  [switch]$NoAutostart
 )
 
 $ErrorActionPreference = "Stop"
@@ -60,6 +61,8 @@ $logFile = Join-Path $InstallDir "logs\vibeide.out.log"
 $errorLogFile = Join-Path $InstallDir "logs\vibeide.err.log"
 $frontendDist = Join-Path $InstallDir "apps\frontend\dist"
 $backendEntry = Join-Path $InstallDir "apps\backend\dist\main.js"
+$startScript = Join-Path $InstallDir "run\start-vibeide.ps1"
+$nodePath = (Get-Command node).Source
 
 if (-not (Test-Path (Join-Path $frontendDist "index.html"))) {
   throw "Frontend build was not found at $frontendDist\index.html. The build step failed or did not produce frontend assets."
@@ -67,6 +70,53 @@ if (-not (Test-Path (Join-Path $frontendDist "index.html"))) {
 
 if (-not (Test-Path $backendEntry)) {
   throw "Backend entry was not found at $backendEntry. The build step failed or did not produce backend assets."
+}
+
+$startScriptContent = @"
+`$ErrorActionPreference = "Stop"
+Set-Location "$InstallDir"
+`$env:PORT = "$Port"
+`$env:HOST = "0.0.0.0"
+`$env:WORKSPACE_DIR = "$WorkspaceDir"
+`$env:FRONTEND_DIST = "$frontendDist"
+if (-not `$env:NODE_ENV) {
+  `$env:NODE_ENV = "development"
+}
+& "$nodePath" "$backendEntry"
+"@
+[System.IO.File]::WriteAllText($startScript, $startScriptContent, [System.Text.UTF8Encoding]::new($false))
+
+function Install-Autostart {
+  if ($NoAutostart) {
+    Write-Host "Autostart disabled by -NoAutostart"
+    return
+  }
+
+  $taskName = "VibeIDE"
+  $action = New-ScheduledTaskAction `
+    -Execute "powershell.exe" `
+    -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$startScript`"" `
+    -WorkingDirectory $InstallDir
+  $trigger = New-ScheduledTaskTrigger -AtLogOn
+  $settings = New-ScheduledTaskSettingsSet `
+    -AllowStartIfOnBatteries `
+    -DontStopIfGoingOnBatteries `
+    -ExecutionTimeLimit ([TimeSpan]::Zero) `
+    -RestartCount 999 `
+    -RestartInterval (New-TimeSpan -Minutes 1)
+
+  try {
+    Register-ScheduledTask `
+      -TaskName $taskName `
+      -Action $action `
+      -Trigger $trigger `
+      -Settings $settings `
+      -Description "Start VibeIDE automatically on user logon." `
+      -Force | Out-Null
+    Write-Host "Autostart enabled with Windows Scheduled Task: $taskName"
+  } catch {
+    Write-Warning "Could not enable autostart: $($_.Exception.Message)"
+  }
 }
 
 if (Test-Path $pidFile) {
@@ -127,6 +177,7 @@ if (-not $healthy) {
 }
 
 Write-Host "VibeIDE is running."
+Install-Autostart
 Write-Host "URL: http://127.0.0.1:$Port"
 Write-Host "PID: $($process.Id)"
 Write-Host "Log: $logFile"

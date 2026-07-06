@@ -6,6 +6,7 @@ BRANCH="${VIBEIDE_BRANCH:-main}"
 INSTALL_DIR="${VIBEIDE_INSTALL_DIR:-$HOME/vibe-ide}"
 PORT="${VIBEIDE_PORT:-8080}"
 WORKSPACE_DIR="${VIBEIDE_WORKSPACE_DIR:-$INSTALL_DIR/workspace}"
+AUTOSTART="${VIBEIDE_AUTOSTART:-1}"
 
 need() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -168,6 +169,8 @@ PID_FILE="$INSTALL_DIR/run/vibeide.pid"
 LOG_FILE="$INSTALL_DIR/logs/vibeide.log"
 FRONTEND_DIST="$INSTALL_DIR/apps/frontend/dist"
 BACKEND_ENTRY="$INSTALL_DIR/apps/backend/dist/main.js"
+NODE_BIN="$(command -v node)"
+START_SCRIPT="$INSTALL_DIR/run/start-vibeide.sh"
 
 if [ ! -f "$FRONTEND_DIST/index.html" ]; then
   echo "Frontend build was not found at $FRONTEND_DIST/index.html"
@@ -181,6 +184,108 @@ if [ ! -f "$BACKEND_ENTRY" ]; then
   exit 1
 fi
 
+cat > "$START_SCRIPT" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$INSTALL_DIR"
+export PORT="$PORT"
+export HOST="0.0.0.0"
+export WORKSPACE_DIR="$WORKSPACE_DIR"
+export FRONTEND_DIST="$FRONTEND_DIST"
+export NODE_ENV="\${NODE_ENV:-development}"
+exec "$NODE_BIN" "$BACKEND_ENTRY"
+EOF
+chmod +x "$START_SCRIPT"
+
+install_autostart() {
+  if [ "$AUTOSTART" = "0" ] || [ "$AUTOSTART" = "false" ]; then
+    echo "Autostart disabled by VIBEIDE_AUTOSTART=$AUTOSTART"
+    return
+  fi
+
+  local os_name
+  os_name="$(uname -s)"
+
+  if [ "$os_name" = "Linux" ]; then
+    if command -v systemctl >/dev/null 2>&1; then
+      local systemd_dir="$HOME/.config/systemd/user"
+      local service_file="$systemd_dir/vibeide.service"
+      mkdir -p "$systemd_dir"
+      cat > "$service_file" <<EOF
+[Unit]
+Description=VibeIDE
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=$INSTALL_DIR
+ExecStart=$START_SCRIPT
+Restart=always
+RestartSec=5
+StandardOutput=append:$LOG_FILE
+StandardError=append:$LOG_FILE
+
+[Install]
+WantedBy=default.target
+EOF
+      systemctl --user daemon-reload >/dev/null 2>&1 || true
+      if systemctl --user enable vibeide.service >/dev/null 2>&1; then
+        echo "Autostart enabled with systemd user service: $service_file"
+        if command -v loginctl >/dev/null 2>&1; then
+          loginctl enable-linger "$(id -un)" >/dev/null 2>&1 || true
+        fi
+        return
+      fi
+    fi
+
+    if command -v crontab >/dev/null 2>&1; then
+      local cron_line="@reboot $START_SCRIPT >> '$LOG_FILE' 2>&1"
+      (crontab -l 2>/dev/null | grep -vF "$START_SCRIPT"; printf '%s\n' "$cron_line") | crontab -
+      echo "Autostart enabled with crontab @reboot"
+      return
+    fi
+
+    echo "Autostart was not enabled: systemd user service and crontab are unavailable."
+    return
+  fi
+
+  if [ "$os_name" = "Darwin" ]; then
+    local launch_dir="$HOME/Library/LaunchAgents"
+    local plist_file="$launch_dir/kz.kansherhan.vibeide.plist"
+    mkdir -p "$launch_dir"
+    cat > "$plist_file" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>kz.kansherhan.vibeide</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$START_SCRIPT</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>$INSTALL_DIR</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>$LOG_FILE</string>
+  <key>StandardErrorPath</key>
+  <string>$LOG_FILE</string>
+</dict>
+</plist>
+EOF
+    launchctl unload "$plist_file" >/dev/null 2>&1 || true
+    launchctl load -w "$plist_file" >/dev/null 2>&1 || true
+    echo "Autostart enabled with macOS LaunchAgent: $plist_file"
+    return
+  fi
+
+  echo "Autostart is not supported for OS: $os_name"
+}
+
 if [ -f "$PID_FILE" ]; then
   OLD_PID="$(cat "$PID_FILE" || true)"
   if [ -n "$OLD_PID" ] && kill -0 "$OLD_PID" >/dev/null 2>&1; then
@@ -191,12 +296,7 @@ if [ -f "$PID_FILE" ]; then
 fi
 
 echo "Starting VibeIDE in background"
-PORT="$PORT" \
-HOST="0.0.0.0" \
-WORKSPACE_DIR="$WORKSPACE_DIR" \
-FRONTEND_DIST="$FRONTEND_DIST" \
-NODE_ENV="${NODE_ENV:-development}" \
-nohup node "$BACKEND_ENTRY" >"$LOG_FILE" 2>&1 &
+nohup "$START_SCRIPT" >"$LOG_FILE" 2>&1 &
 PID="$!"
 echo "$PID" > "$PID_FILE"
 
@@ -225,6 +325,7 @@ for attempt in $(seq 1 30); do
 done
 
 echo "VibeIDE is running."
+install_autostart
 echo "URL: http://127.0.0.1:$PORT"
 echo "PID: $PID"
 echo "Log: $LOG_FILE"
