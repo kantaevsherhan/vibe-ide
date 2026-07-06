@@ -11,7 +11,9 @@ export const useGitStore = defineStore('git', () => {
   const branch = ref<string | null>(null);
   const branches = ref<string[]>([]);
   const loading = ref(false);
+  const committing = ref(false);
   const error = ref<string | null>(null);
+  const messageText = ref<string | null>(null);
 
   function setProject(nextProjectName: string) {
     if (projectName.value === nextProjectName) return;
@@ -28,6 +30,7 @@ export const useGitStore = defineStore('git', () => {
     loading.value = true;
     error.value = null;
     message.value = null;
+    messageText.value = null;
     try {
       const response = await gitApi.status(projectName.value);
       files.value = response.files;
@@ -43,9 +46,13 @@ export const useGitStore = defineStore('git', () => {
 
   async function loadBranches() {
     if (!projectName.value || !isRepository.value) return;
-    const response = await gitApi.branches(projectName.value);
-    branch.value = response.current;
-    branches.value = response.branches;
+    try {
+      const response = await gitApi.branches(projectName.value);
+      branch.value = response.current;
+      branches.value = response.branches;
+    } catch (caught) {
+      error.value = caught instanceof Error ? caught.message : 'Failed to load branches.';
+    }
   }
 
   async function checkout(nextBranch: string) {
@@ -80,5 +87,23 @@ export const useGitStore = defineStore('git', () => {
     }
   }
 
-  return { files, projectName, isRepository, message, branch, branches, loading, error, setProject, refresh, initRepository, loadBranches, checkout };
+  async function commit(commitMessage: string) {
+    if (!projectName.value) return;
+    committing.value = true;
+    error.value = null;
+    messageText.value = null;
+    try {
+      const response = await gitApi.commit(projectName.value, commitMessage);
+      messageText.value = `Committed ${response.commit}`;
+      await refresh();
+      await loadBranches();
+    } catch (caught) {
+      error.value = caught instanceof Error ? caught.message : 'Failed to commit changes.';
+      throw caught;
+    } finally {
+      committing.value = false;
+    }
+  }
+
+  return { files, projectName, isRepository, message, branch, branches, loading, committing, error, messageText, setProject, refresh, initRepository, loadBranches, checkout, commit };
 });

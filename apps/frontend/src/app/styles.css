@@ -78,6 +78,7 @@ input:focus-visible {
   display: flex;
   min-width: 0;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   border-bottom: 1px solid #3c3c3c;
   background: #181818;
@@ -100,6 +101,11 @@ input:focus-visible {
   overflow: hidden;
   font-size: 12px;
   line-height: 32px;
+}
+
+.title-bar-health {
+  margin-left: auto;
+  min-width: 0;
 }
 
 .title-bar-app {
@@ -133,7 +139,7 @@ input:focus-visible {
 
 .editor-area {
   display: grid;
-  grid-template-rows: 32px 36px minmax(0, 1fr) var(--terminal-handle-height, 4px) var(--terminal-height, 280px);
+  grid-template-rows: 36px minmax(0, 1fr) var(--terminal-handle-height, 4px) var(--terminal-height, 280px);
 }
 
 .desktop-agent-sidebar {
@@ -566,7 +572,7 @@ input:focus-visible {
     position: relative;
     z-index: 60;
     display: grid;
-    grid-template-columns: 44px minmax(0, 1fr) auto 44px 44px;
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
     align-items: center;
     gap: 6px;
     min-height: calc(48px + env(safe-area-inset-top));

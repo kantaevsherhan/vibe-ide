@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { Files, GitBranch, LogOut, NotebookText, Settings, TerminalSquare } from '@lucide/vue';
+import { Bot, Files, GitBranch, LogOut, NotebookText, Settings, TerminalSquare } from '@lucide/vue';
 import { useRouter } from 'vue-router';
 
-const model = defineModel<'files' | 'git' | 'terminal' | 'notes'>({ required: true });
+const model = defineModel<'files' | 'git' | 'terminal' | 'notes' | 'agents'>({ required: true });
 defineEmits<{
   settings: [];
-  selectView: [view: 'files' | 'git' | 'terminal' | 'notes'];
+  selectView: [view: 'files' | 'git' | 'terminal' | 'notes' | 'agents'];
 }>();
 const router = useRouter();
 
@@ -13,7 +13,8 @@ const items = [
   { id: 'files', label: 'Files', icon: Files },
   { id: 'git', label: 'Git', icon: GitBranch },
   { id: 'terminal', label: 'Terminal', icon: TerminalSquare },
-  { id: 'notes', label: 'Notes', icon: NotebookText }
+  { id: 'notes', label: 'Notes', icon: NotebookText },
+  { id: 'agents', label: 'Agents', icon: Bot }
 ] as const;
 
 async function exitProject() {

@@ -24,5 +24,11 @@ export const gitApi = {
       method: 'POST',
       body: JSON.stringify({ projectName, branch })
     });
+  },
+  async commit(projectName: string, message: string) {
+    return apiRequest<{ ok: true; commit: string }>('/api/git/commit', {
+      method: 'POST',
+      body: JSON.stringify({ projectName, message })
+    });
   }
 };

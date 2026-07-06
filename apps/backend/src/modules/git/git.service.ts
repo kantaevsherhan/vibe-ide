@@ -19,6 +19,11 @@ export type GitStatusResult = {
   branch?: string | null;
 };
 
+export type GitCommitResult = {
+  ok: true;
+  commit: string;
+};
+
 export class GitService {
   constructor(
     private readonly projects: ProjectsService,
@@ -97,13 +102,22 @@ export class GitService {
     ensureGitAllowed(this.config);
     const projectPath = await this.projects.ensureProjectExists(projectName);
     await this.ensureProjectGit(projectPath);
-    const [{ stdout: branches }, { stdout: current }] = await Promise.all([
+    await this.git(projectPath, ['fetch', '--all', '--prune']).catch(() => null);
+    const [{ stdout: branches }, { stdout: remoteBranches }, { stdout: current }] = await Promise.all([
       this.git(projectPath, ['branch', '--format=%(refname:short)']),
+      this.git(projectPath, ['branch', '-r', '--format=%(refname:short)']),
       this.git(projectPath, ['branch', '--show-current'])
     ]);
+    const localBranches = branches.split('\n').map((branch) => branch.trim()).filter(Boolean);
+    const normalizedRemoteBranches = remoteBranches
+      .split('\n')
+      .map((branch) => branch.trim())
+      .filter((branch) => branch && !branch.endsWith('/HEAD'))
+      .map((branch) => branch.replace(/^origin\//, ''));
+    const allBranches = [...new Set([...localBranches, ...normalizedRemoteBranches])].sort((a, b) => a.localeCompare(b));
     return {
       current: current || null,
-      branches: branches.split('\n').map((branch) => branch.trim()).filter(Boolean)
+      branches: allBranches
     };
   }
 
@@ -114,8 +128,30 @@ export class GitService {
     }
     const projectPath = await this.projects.ensureProjectExists(projectName);
     await this.ensureProjectGit(projectPath);
-    await this.git(projectPath, ['checkout', branch]);
+    const localBranches = (await this.git(projectPath, ['branch', '--format=%(refname:short)'])).stdout
+      .split('\n')
+      .map((item) => item.trim())
+      .filter(Boolean);
+    if (localBranches.includes(branch)) {
+      await this.git(projectPath, ['checkout', branch]);
+    } else {
+      await this.git(projectPath, ['checkout', '-b', branch, '--track', `origin/${branch}`]);
+    }
     return this.branches(projectName);
+  }
+
+  async commit(projectName: string, message: string): Promise<GitCommitResult> {
+    ensureGitAllowed(this.config);
+    const cleanMessage = message.trim();
+    if (!cleanMessage) throw Object.assign(new Error('Commit message is required.'), { statusCode: 400 });
+    const projectPath = await this.projects.ensureProjectExists(projectName);
+    await this.ensureProjectGit(projectPath);
+    await this.git(projectPath, ['add', '-A']);
+    const status = (await this.git(projectPath, ['status', '--short'])).stdout;
+    if (!status.trim()) throw Object.assign(new Error('No changes to commit.'), { statusCode: 400 });
+    await this.git(projectPath, ['commit', '-m', cleanMessage]);
+    const { stdout } = await this.git(projectPath, ['rev-parse', '--short', 'HEAD']);
+    return { ok: true, commit: stdout.trim() };
   }
 
   async health(projectName: string) {

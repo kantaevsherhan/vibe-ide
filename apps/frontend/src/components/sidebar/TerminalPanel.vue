@@ -4,8 +4,18 @@ import { useTerminalStore } from '../../stores/terminal.store';
 
 const terminals = useTerminalStore();
 
+const emit = defineEmits<{
+  openTerminal: [];
+}>();
+
 function create() {
   terminals.create();
+  emit('openTerminal');
+}
+
+function select(id: string) {
+  terminals.activeId = id;
+  emit('openTerminal');
 }
 </script>
 
@@ -25,7 +35,7 @@ function create() {
         :key="session.id"
         class="group flex h-7 w-full items-center gap-2 px-3 text-left text-ide-muted hover:bg-white/5 hover:text-ide-text"
         :class="{ 'bg-[#37373d] text-ide-text': terminals.activeId === session.id }"
-        @click="terminals.activeId = session.id"
+        @click="select(session.id)"
       >
         <TerminalSquare class="shrink-0 text-ide-accent" :size="14" />
         <span class="truncate">{{ session.name }}</span>

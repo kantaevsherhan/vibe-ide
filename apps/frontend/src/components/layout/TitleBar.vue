@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import WorkspaceHealth from '../health/WorkspaceHealth.vue';
+
 defineProps<{
   projectName: string;
 }>();
@@ -15,5 +17,6 @@ defineProps<{
       <span class="title-bar-separator">—</span>
       <span class="title-bar-project" :title="projectName">{{ projectName }}</span>
     </div>
+    <WorkspaceHealth class="title-bar-health" />
   </header>
 </template>

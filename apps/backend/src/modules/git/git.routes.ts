@@ -21,4 +21,7 @@ export async function registerGitRoutes(app: FastifyInstance, git: GitService) {
   app.post<{ Body: { projectName: string; branch: string } }>('/api/git/checkout', async (request) =>
     git.checkout(request.body.projectName, request.body.branch)
   );
+  app.post<{ Body: { projectName: string; message: string } }>('/api/git/commit', async (request) =>
+    git.commit(request.body.projectName, request.body.message)
+  );
 }

@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { Bot, Download, Files, GitBranch, Maximize, Menu, Minimize, NotebookText, TerminalSquare, X } from '@lucide/vue';
+import { Bot, Files, GitBranch, Menu, NotebookText, TerminalSquare, X } from '@lucide/vue';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import ActivityBar from '../components/activity-bar/ActivityBar.vue';
 import AgentChatSidebar from '../components/agents/AgentChatSidebar.vue';
 import EditorTabs from '../components/editor/EditorTabs.vue';
 import WorkspaceEditor from '../components/editor/WorkspaceEditor.vue';
-import WorkspaceHealth from '../components/health/WorkspaceHealth.vue';
 import TitleBar from '../components/layout/TitleBar.vue';
 import NotesPanel from '../components/notes/NotesPanel.vue';
 import FileExplorer from '../components/sidebar/FileExplorer.vue';
@@ -24,23 +23,16 @@ import { useEditorStore } from '../stores/editor.store';
 import { useProjectsStore } from '../stores/projects.store';
 import SettingsModal from '../components/settings/SettingsModal.vue';
 
-type BeforeInstallPromptEvent = Event & {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
-};
-
-type IdeView = 'files' | 'git' | 'terminal' | 'notes';
+type IdeView = 'files' | 'git' | 'terminal' | 'notes' | 'agents';
 
 const activeView = ref<IdeView>('files');
 const drawerOpen = ref(false);
-const isFullscreen = ref(false);
 const isMobile = ref(false);
-const deferredInstallPrompt = ref<BeforeInstallPromptEvent | null>(null);
 const settingsOpen = ref(false);
 const mobileAgentsOpen = ref(false);
 const desktopSidebarVisible = ref(true);
-const desktopAgentsVisible = ref(true);
-const terminalPanelVisible = ref(true);
+const desktopAgentsVisible = ref(false);
+const terminalPanelVisible = ref(false);
 const files = useFilesStore();
 const git = useGitStore();
 const agents = useAgentsStore();
@@ -72,6 +64,7 @@ const activeTitle = computed(() => {
   if (activeView.value === 'git') return 'Git';
   if (activeView.value === 'terminal') return 'Terminal';
   if (activeView.value === 'notes') return 'Notes';
+  if (activeView.value === 'agents') return 'Agents';
   return 'Files';
 });
 
@@ -79,15 +72,24 @@ const navItems = [
   { id: 'files', label: 'Files', icon: Files },
   { id: 'git', label: 'Git', icon: GitBranch },
   { id: 'terminal', label: 'Terminal', icon: TerminalSquare },
-  { id: 'notes', label: 'Notes', icon: NotebookText }
+  { id: 'notes', label: 'Notes', icon: NotebookText },
+  { id: 'agents', label: 'Agents', icon: Bot }
 ] as const;
 
 function selectMobileView(view: IdeView) {
+  if (view === 'agents') {
+    mobileAgentsOpen.value = true;
+    return;
+  }
   activeView.value = view;
   drawerOpen.value = view !== 'terminal';
 }
 
 function selectDesktopView(view: IdeView) {
+  if (view === 'agents') {
+    desktopAgentsVisible.value = !desktopAgentsVisible.value;
+    return;
+  }
   if (activeView.value === view) {
     desktopSidebarVisible.value = !desktopSidebarVisible.value;
     return;
@@ -98,36 +100,6 @@ function selectDesktopView(view: IdeView) {
 
 function showTerminalPanel() {
   terminalPanelVisible.value = true;
-  activeView.value = 'terminal';
-  desktopSidebarVisible.value = true;
-}
-
-async function enterFullscreen() {
-  if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
-    await document.documentElement.requestFullscreen();
-  }
-}
-
-async function exitFullscreen() {
-  if (document.fullscreenElement && document.exitFullscreen) {
-    await document.exitFullscreen();
-  }
-}
-
-async function installPwa() {
-  if (!deferredInstallPrompt.value) return;
-  await deferredInstallPrompt.value.prompt();
-  await deferredInstallPrompt.value.userChoice;
-  deferredInstallPrompt.value = null;
-}
-
-function syncFullscreenState() {
-  isFullscreen.value = Boolean(document.fullscreenElement);
-}
-
-function onBeforeInstallPrompt(event: Event) {
-  event.preventDefault();
-  deferredInstallPrompt.value = event as BeforeInstallPromptEvent;
 }
 
 function syncMobileState() {
@@ -164,20 +136,15 @@ onMounted(async () => {
   await notes.refresh();
   void agents.refresh();
   void health.refresh();
-  syncFullscreenState();
   mobileMediaQuery = window.matchMedia('(max-width: 899px)');
   syncMobileState();
   mobileMediaQuery.addEventListener('change', syncMobileState);
-  document.addEventListener('fullscreenchange', syncFullscreenState);
-  window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
   document.addEventListener('keydown', handleGlobalKeys, true);
   window.addEventListener('vibeide:backend-reconnected', reloadWorkspaceState);
 });
 
 onBeforeUnmount(() => {
   mobileMediaQuery?.removeEventListener('change', syncMobileState);
-  document.removeEventListener('fullscreenchange', syncFullscreenState);
-  window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt);
   document.removeEventListener('keydown', handleGlobalKeys, true);
   window.removeEventListener('vibeide:backend-reconnected', reloadWorkspaceState);
 });
@@ -208,15 +175,6 @@ onBeforeUnmount(() => {
         <div class="truncate text-sm font-semibold">VibeIDE</div>
         <div class="truncate text-[11px] text-ide-muted">{{ activeTitle }}</div>
       </div>
-      <button v-if="deferredInstallPrompt" class="install-button" @click="installPwa">Install VibeIDE</button>
-      <button v-if="!isFullscreen" class="touch-button" title="Enter Fullscreen" @click="enterFullscreen">
-        <Maximize :size="20" />
-        <span class="sr-only">Enter Fullscreen</span>
-      </button>
-      <button v-else class="touch-button" title="Exit Fullscreen" @click="exitFullscreen">
-        <Minimize :size="20" />
-        <span class="sr-only">Exit Fullscreen</span>
-      </button>
       <button class="touch-button" title="AI Agents" @click="mobileAgentsOpen = true">
         <Bot :size="20" />
       </button>
@@ -227,7 +185,7 @@ onBeforeUnmount(() => {
     <aside v-if="!isMobile && desktopSidebarVisible" class="desktop-sidebar min-w-0 border-r border-ide-border bg-ide-sidebar">
       <FileExplorer v-if="activeView === 'files'" :active="activeView === 'files'" />
       <GitPanel v-else-if="activeView === 'git'" />
-      <TerminalPanel v-else-if="activeView === 'terminal'" />
+      <TerminalPanel v-else-if="activeView === 'terminal'" @open-terminal="showTerminalPanel" />
       <NotesPanel v-else-if="activeView === 'notes'" />
     </aside>
 
@@ -240,33 +198,6 @@ onBeforeUnmount(() => {
     />
 
     <main class="editor-area min-w-0">
-      <header class="workspace-header">
-        <div class="workspace-status">
-          <WorkspaceHealth />
-        </div>
-        <div class="workspace-actions">
-        <button v-if="deferredInstallPrompt" class="desktop-action-button gap-2 px-2" @click="installPwa">
-          <Download :size="14" />
-          Install VibeIDE
-        </button>
-        <button class="desktop-action-button w-8" :title="desktopAgentsVisible ? 'Hide AI Agents' : 'Show AI Agents'" @click="desktopAgentsVisible = !desktopAgentsVisible">
-          <Bot :size="15" />
-          <span class="sr-only">{{ desktopAgentsVisible ? 'Hide AI Agents' : 'Show AI Agents' }}</span>
-        </button>
-        <button v-if="!terminalPanelVisible" class="desktop-action-button w-8" title="Show Terminal" @click="showTerminalPanel">
-          <TerminalSquare :size="15" />
-          <span class="sr-only">Show Terminal</span>
-        </button>
-        <button v-if="!isFullscreen" class="desktop-action-button w-8" title="Enter Fullscreen" @click="enterFullscreen">
-          <Maximize :size="15" />
-          <span class="sr-only">Enter Fullscreen</span>
-        </button>
-        <button v-else class="desktop-action-button w-8" title="Exit Fullscreen" @click="exitFullscreen">
-          <Minimize :size="15" />
-          <span class="sr-only">Exit Fullscreen</span>
-        </button>
-      </div>
-      </header>
       <EditorTabs />
       <WorkspaceEditor />
       <button
@@ -291,11 +222,11 @@ onBeforeUnmount(() => {
       </header>
       <FileExplorer v-if="activeView === 'files'" :active="activeView === 'files'" />
       <GitPanel v-else-if="activeView === 'git'" />
-      <TerminalPanel v-else-if="activeView === 'terminal'" />
+      <TerminalPanel v-else-if="activeView === 'terminal'" @open-terminal="terminalPanelVisible = true" />
       <NotesPanel v-else-if="activeView === 'notes'" />
     </aside>
 
-    <section v-if="isMobile && activeView === 'terminal'" class="mobile-terminal-overlay">
+    <section v-if="isMobile && activeView === 'terminal' && terminalPanelVisible" class="mobile-terminal-overlay">
       <TerminalView />
     </section>
 
