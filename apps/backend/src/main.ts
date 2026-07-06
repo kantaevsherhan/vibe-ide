@@ -131,13 +131,32 @@ const frontendDist = process.env.FRONTEND_DIST ?? path.resolve(dirname, '../../f
 if (existsSync(frontendDist)) {
   await app.register(fastifyStatic, {
     root: frontendDist,
-    wildcard: false
+    wildcard: false,
+    setHeaders: (response, filePath) => {
+      if (path.basename(filePath) === 'index.html') {
+        response.setHeader('Cache-Control', 'no-store');
+        return;
+      }
+
+      if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+        response.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      }
+    }
   });
 }
 
 app.setNotFoundHandler((request, reply) => {
-  if (request.raw.url?.startsWith('/api/') || request.raw.url?.startsWith('/ws/')) {
+  const url = request.raw.url ?? '';
+
+  if (url.startsWith('/api/') || url.startsWith('/ws/')) {
     reply.code(404).send({ error: 'Not found' });
+    return;
+  }
+
+  const pathname = new URL(url, 'http://localhost').pathname;
+  const isStaticAssetRequest = pathname.startsWith('/assets/') || path.extname(pathname) !== '';
+  if (isStaticAssetRequest) {
+    reply.code(404).send({ error: 'Asset not found' });
     return;
   }
 
