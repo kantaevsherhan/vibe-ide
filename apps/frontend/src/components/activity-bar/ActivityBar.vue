@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { Bot, Files, GitBranch, LogOut, NotebookText, Settings, TerminalSquare } from '@lucide/vue';
+import { Files, GitBranch, LogOut, NotebookText, Settings, TerminalSquare } from '@lucide/vue';
 import { useRouter } from 'vue-router';
 
-const model = defineModel<'files' | 'git' | 'terminal' | 'notes' | 'agents'>({ required: true });
+const model = defineModel<'files' | 'git' | 'terminal' | 'notes'>({ required: true });
 defineEmits<{
   settings: [];
 }>();
@@ -12,8 +12,7 @@ const items = [
   { id: 'files', label: 'Files', icon: Files },
   { id: 'git', label: 'Git', icon: GitBranch },
   { id: 'terminal', label: 'Terminal', icon: TerminalSquare },
-  { id: 'notes', label: 'Notes', icon: NotebookText },
-  { id: 'agents', label: 'Agents', icon: Bot }
+  { id: 'notes', label: 'Notes', icon: NotebookText }
 ] as const;
 
 async function exitProject() {
@@ -38,18 +37,18 @@ async function exitProject() {
       <component :is="item.icon" :size="22" :stroke-width="1.8" />
     </button>
     <button
-      title="Exit Project"
-      class="mt-auto grid h-11 w-full place-items-center text-ide-muted transition hover:text-ide-text"
-      @click="exitProject"
-    >
-      <LogOut :size="20" :stroke-width="1.8" />
-    </button>
-    <button
       title="Settings"
-      class="grid h-11 w-full place-items-center text-ide-muted transition hover:text-ide-text"
+      class="mt-auto grid h-11 w-full place-items-center text-ide-muted transition hover:text-ide-text"
       @click="$emit('settings')"
     >
       <Settings :size="20" :stroke-width="1.8" />
+    </button>
+    <button
+      title="Exit Project"
+      class="grid h-11 w-full place-items-center text-ide-muted transition hover:text-ide-text"
+      @click="exitProject"
+    >
+      <LogOut :size="20" :stroke-width="1.8" />
     </button>
   </nav>
 </template>

@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { Bot, ClipboardList, ExternalLink, GitBranch, MapPin, TerminalSquare, Trash2 } from '@lucide/vue';
+import { Bot, ChevronRight, ClipboardList, ExternalLink, Folder, GitBranch, MapPin, TerminalSquare, Trash2 } from '@lucide/vue';
+import { computed, ref } from 'vue';
 import type { Project } from '../../services/projects.api';
 
-defineProps<{
+const props = defineProps<{
   project: Project;
 }>();
 
@@ -11,9 +12,20 @@ defineEmits<{
   delete: [project: Project];
 }>();
 
-function gitLabel(project: Project) {
-  if (project.health.gitClean) return 'Clean';
-  return `${project.health.gitChangedFiles} Changes`;
+const expanded = ref(false);
+
+const gitLabel = computed(() => {
+  if (props.project.health.gitClean) return 'Clean';
+  return `${props.project.health.gitChangedFiles} changes`;
+});
+
+const updatedLabel = computed(() => formatDate(props.project.updatedAt));
+const createdLabel = computed(() => formatDate(props.project.createdAt));
+
+function formatDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Unknown';
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function statusClass(status: string) {
@@ -25,77 +37,98 @@ function statusClass(status: string) {
 </script>
 
 <template>
-  <article class="flex min-h-80 flex-col border border-ide-border bg-ide-sidebar p-4 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
-    <div class="mb-4">
-      <div class="mb-1 text-[11px] uppercase tracking-wide text-ide-muted">Project Name</div>
-      <h2 class="truncate text-xl font-semibold text-ide-text">{{ project.name }}</h2>
-    </div>
+  <article class="border-b border-ide-border bg-ide-sidebar/80 text-sm last:border-b-0 hover:bg-[#2a2a2b]">
+    <div class="grid min-h-12 grid-cols-[32px_minmax(180px,1.5fr)_minmax(120px,1fr)_minmax(120px,0.9fr)_minmax(160px,1fr)_100px_auto] items-center gap-3 px-3 max-lg:grid-cols-[32px_minmax(0,1fr)_auto] max-lg:gap-2">
+      <button
+        class="grid h-7 w-7 place-items-center text-ide-muted hover:text-ide-text"
+        :title="expanded ? 'Collapse project' : 'Expand project'"
+        @click="expanded = !expanded"
+      >
+        <ChevronRight :size="16" class="transition-transform" :class="{ 'rotate-90': expanded }" />
+      </button>
 
-    <div class="mb-4">
-      <div class="mb-1 text-[11px] uppercase tracking-wide text-ide-muted">Description</div>
-      <p class="line-clamp-3 min-h-12 text-sm leading-5 text-ide-muted">{{ project.description || 'No description.' }}</p>
-    </div>
-
-    <div class="mb-4">
-      <div class="mb-1 text-[11px] uppercase tracking-wide text-ide-muted">Location</div>
-      <div class="flex min-w-0 items-center gap-2 border border-ide-border bg-ide-panel px-2 py-1.5 font-mono text-xs text-ide-accent">
-        <MapPin :size="13" class="shrink-0 text-ide-muted" />
-        <span class="truncate">{{ project.location }}</span>
-      </div>
-    </div>
-
-    <div class="mb-4">
-      <div class="mb-2 text-[11px] uppercase tracking-wide text-ide-muted">Runtime</div>
-      <div class="flex flex-wrap gap-2">
-        <span class="inline-flex items-center gap-1.5 border border-ide-border bg-ide-panel px-2 py-1 text-xs text-ide-muted">
-          <TerminalSquare :size="13" />
-          {{ project.runtime.activeTerminals }} Terminals
-        </span>
-        <span class="inline-flex items-center gap-1.5 border border-ide-border bg-ide-panel px-2 py-1 text-xs text-ide-muted">
-          <Bot :size="13" />
-          {{ project.runtime.runningAgents }} Agents
-        </span>
-        <span class="inline-flex items-center gap-1.5 border border-ide-border bg-ide-panel px-2 py-1 text-xs text-ide-muted">
-          <ClipboardList :size="13" />
-          {{ project.runtime.activeTasks }} Tasks
-        </span>
-        <span class="inline-flex items-center gap-1.5 border border-ide-border bg-ide-panel px-2 py-1 text-xs" :class="project.health.gitClean ? 'text-green-300' : 'text-ide-accent'">
-          <GitBranch :size="13" />
-          {{ gitLabel(project) }}
-        </span>
-      </div>
-    </div>
-
-    <div class="mb-4">
-      <div class="mb-2 text-[11px] uppercase tracking-wide text-ide-muted">Workspace Health</div>
-      <div class="grid gap-1.5 text-xs">
-        <div class="flex items-center justify-between gap-2">
-          <span class="inline-flex items-center gap-1.5 text-ide-muted"><GitBranch :size="13" />Git</span>
-          <span :class="project.health.gitClean ? 'text-green-300' : 'text-ide-accent'">{{ gitLabel(project) }}</span>
+      <button class="min-w-0 py-2 text-left" @click="expanded = !expanded">
+        <div class="flex min-w-0 items-center gap-2">
+          <Folder :size="15" class="shrink-0 text-ide-accent" />
+          <span class="truncate font-medium text-ide-text">{{ project.name }}</span>
         </div>
-        <div class="flex items-center justify-between gap-2">
-          <span class="inline-flex items-center gap-1.5 text-ide-muted"><TerminalSquare :size="13" />Terminals</span>
+        <div class="truncate text-xs text-ide-muted">{{ project.description || 'No description' }}</div>
+      </button>
+
+      <div class="min-w-0 text-xs text-ide-muted max-lg:hidden">
+        <div class="flex min-w-0 items-center gap-1.5">
+          <MapPin :size="13" class="shrink-0" />
+          <span class="truncate font-mono">{{ project.folderName }}</span>
+        </div>
+      </div>
+
+      <div class="min-w-0 text-xs max-lg:hidden" :class="project.health.gitClean ? 'text-green-300' : 'text-ide-accent'">
+        <div class="flex min-w-0 items-center gap-1.5">
+          <GitBranch :size="13" class="shrink-0" />
+          <span class="truncate">{{ project.health.gitBranch || gitLabel }}</span>
+        </div>
+      </div>
+
+      <div class="flex min-w-0 items-center gap-3 text-xs text-ide-muted max-lg:hidden">
+        <span class="inline-flex items-center gap-1" title="Active terminals"><TerminalSquare :size="13" />{{ project.runtime.activeTerminals }}</span>
+        <span class="inline-flex items-center gap-1" title="Running agents"><Bot :size="13" />{{ project.runtime.runningAgents }}</span>
+        <span class="inline-flex items-center gap-1" title="Active tasks"><ClipboardList :size="13" />{{ project.runtime.activeTasks }}</span>
+      </div>
+
+      <div class="text-xs text-ide-muted max-lg:hidden">{{ updatedLabel }}</div>
+
+      <div class="flex items-center justify-end gap-1">
+        <button class="desktop-action-button h-8 gap-1.5 px-2" title="Open Project" @click="$emit('open', project.folderName)">
+          <ExternalLink :size="14" />
+          <span class="max-sm:hidden">Open</span>
+        </button>
+        <button
+          class="grid h-8 w-8 place-items-center border border-ide-border text-ide-muted hover:border-red-500/60 hover:text-red-200"
+          title="Delete project"
+          @click="$emit('delete', project)"
+        >
+          <Trash2 :size="14" />
+        </button>
+      </div>
+    </div>
+
+    <div v-if="expanded" class="grid gap-4 border-t border-ide-border bg-[#1f1f1f] px-11 py-4 text-xs text-ide-muted md:grid-cols-[minmax(0,1fr)_260px]">
+      <div class="min-w-0 space-y-3">
+        <div>
+          <div class="mb-1 uppercase tracking-wide">Description</div>
+          <p class="whitespace-pre-wrap text-sm leading-5 text-ide-text">{{ project.description || 'No description.' }}</p>
+        </div>
+        <div>
+          <div class="mb-1 uppercase tracking-wide">Location</div>
+          <div class="flex min-w-0 items-center gap-2 border border-ide-border bg-ide-panel px-2 py-1.5 font-mono text-[11px] text-ide-accent">
+            <MapPin :size="13" class="shrink-0 text-ide-muted" />
+            <span class="truncate">{{ project.location }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid gap-2">
+        <div class="flex items-center justify-between gap-3">
+          <span class="inline-flex items-center gap-1.5"><GitBranch :size="13" />Git</span>
+          <span :class="project.health.gitClean ? 'text-green-300' : 'text-ide-accent'">{{ gitLabel }}</span>
+        </div>
+        <div class="flex items-center justify-between gap-3">
+          <span class="inline-flex items-center gap-1.5"><TerminalSquare :size="13" />Terminals</span>
           <span :class="statusClass(project.health.terminalStatus)">{{ project.health.terminalStatus === 'active' ? 'Active' : 'Inactive' }}</span>
         </div>
-        <div class="flex items-center justify-between gap-2">
-          <span class="inline-flex items-center gap-1.5 text-ide-muted"><Bot :size="13" />Agents</span>
+        <div class="flex items-center justify-between gap-3">
+          <span class="inline-flex items-center gap-1.5"><Bot :size="13" />Agents</span>
           <span :class="statusClass(project.health.agentStatus)">{{ project.health.agentStatus }}</span>
         </div>
+        <div class="flex items-center justify-between gap-3">
+          <span>Created</span>
+          <span class="text-ide-text">{{ createdLabel }}</span>
+        </div>
+        <div class="flex items-center justify-between gap-3">
+          <span>Updated</span>
+          <span class="text-ide-text">{{ updatedLabel }}</span>
+        </div>
       </div>
-    </div>
-
-    <div class="mt-auto flex gap-2 pt-2">
-      <button class="inline-flex h-9 flex-1 items-center justify-center gap-2 bg-ide-accent px-3 text-sm font-medium text-white hover:bg-[#0b86d1]" @click="$emit('open', project.folderName)">
-        <ExternalLink :size="15" />
-        Open Project
-      </button>
-      <button
-        class="grid h-9 w-10 place-items-center border border-ide-border text-ide-muted hover:border-red-500/60 hover:text-red-200"
-        title="Delete project"
-        @click="$emit('delete', project)"
-      >
-        <Trash2 :size="15" />
-      </button>
     </div>
   </article>
 </template>

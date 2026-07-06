@@ -3,7 +3,7 @@ import { Bot, Download, Files, GitBranch, Maximize, Menu, Minimize, NotebookText
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import ActivityBar from '../components/activity-bar/ActivityBar.vue';
-import AgentsSidebar from '../components/agents/AgentsSidebar.vue';
+import AgentChatSidebar from '../components/agents/AgentChatSidebar.vue';
 import EditorTabs from '../components/editor/EditorTabs.vue';
 import WorkspaceEditor from '../components/editor/WorkspaceEditor.vue';
 import WorkspaceHealth from '../components/health/WorkspaceHealth.vue';
@@ -29,7 +29,7 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
 };
 
-type IdeView = 'files' | 'git' | 'terminal' | 'notes' | 'agents';
+type IdeView = 'files' | 'git' | 'terminal' | 'notes';
 
 const activeView = ref<IdeView>('files');
 const drawerOpen = ref(false);
@@ -37,6 +37,7 @@ const isFullscreen = ref(false);
 const isMobile = ref(false);
 const deferredInstallPrompt = ref<BeforeInstallPromptEvent | null>(null);
 const settingsOpen = ref(false);
+const mobileAgentsOpen = ref(false);
 const files = useFilesStore();
 const git = useGitStore();
 const agents = useAgentsStore();
@@ -68,15 +69,14 @@ const activeTitle = computed(() => {
   if (activeView.value === 'git') return 'Git';
   if (activeView.value === 'terminal') return 'Terminal';
   if (activeView.value === 'notes') return 'Notes';
-  return 'Agents';
+  return 'Files';
 });
 
 const navItems = [
   { id: 'files', label: 'Files', icon: Files },
   { id: 'git', label: 'Git', icon: GitBranch },
   { id: 'terminal', label: 'Terminal', icon: TerminalSquare },
-  { id: 'notes', label: 'Notes', icon: NotebookText },
-  { id: 'agents', label: 'Agents', icon: Bot }
+  { id: 'notes', label: 'Notes', icon: NotebookText }
 ] as const;
 
 function selectMobileView(view: IdeView) {
@@ -174,7 +174,8 @@ onBeforeUnmount(() => {
         !isMobile
           ? {
               '--sidebar-width': `${sidebarResize.width.value}px`,
-              '--terminal-height': `${terminalResize.height.value}px`
+              '--terminal-height': `${terminalResize.height.value}px`,
+              '--agent-sidebar-width': '380px'
             }
           : undefined
       "
@@ -196,6 +197,9 @@ onBeforeUnmount(() => {
         <Minimize :size="20" />
         <span class="sr-only">Exit Fullscreen</span>
       </button>
+      <button class="touch-button" title="AI Agents" @click="mobileAgentsOpen = true">
+        <Bot :size="20" />
+      </button>
     </header>
 
     <ActivityBar v-if="!isMobile" v-model="activeView" class="desktop-activity" @settings="settingsOpen = true" />
@@ -205,7 +209,6 @@ onBeforeUnmount(() => {
       <GitPanel v-else-if="activeView === 'git'" />
       <TerminalPanel v-else-if="activeView === 'terminal'" />
       <NotesPanel v-else-if="activeView === 'notes'" />
-      <AgentsSidebar v-else />
     </aside>
 
     <button
@@ -248,6 +251,8 @@ onBeforeUnmount(() => {
       <TerminalView v-if="!isMobile" class="desktop-terminal" />
     </main>
 
+    <AgentChatSidebar v-if="!isMobile" class="desktop-agent-sidebar" />
+
     <div v-if="isMobile && drawerOpen" class="mobile-scrim" @click="drawerOpen = false" />
     <aside v-if="isMobile" class="mobile-drawer" :class="{ 'is-open': drawerOpen }">
       <header class="flex h-12 items-center justify-between border-b border-ide-border px-3">
@@ -260,12 +265,14 @@ onBeforeUnmount(() => {
       <GitPanel v-else-if="activeView === 'git'" />
       <TerminalPanel v-else-if="activeView === 'terminal'" />
       <NotesPanel v-else-if="activeView === 'notes'" />
-      <AgentsSidebar v-else />
     </aside>
 
     <section v-if="isMobile && activeView === 'terminal'" class="mobile-terminal-overlay">
       <TerminalView />
     </section>
+
+    <div v-if="isMobile && mobileAgentsOpen" class="mobile-scrim" @click="mobileAgentsOpen = false" />
+    <AgentChatSidebar v-if="isMobile && mobileAgentsOpen" mobile class="mobile-agent-overlay" @close="mobileAgentsOpen = false" />
 
     <nav v-if="isMobile" class="mobile-bottom-nav">
       <button

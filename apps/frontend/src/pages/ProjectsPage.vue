@@ -136,7 +136,16 @@ async function confirmDeleteProject(folderName: string) {
         No projects match your search.
       </section>
 
-      <section v-else class="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+      <section v-else class="overflow-hidden border border-ide-border bg-ide-sidebar">
+        <div class="grid h-9 grid-cols-[32px_minmax(180px,1.5fr)_minmax(120px,1fr)_minmax(120px,0.9fr)_minmax(160px,1fr)_100px_auto] items-center gap-3 border-b border-ide-border bg-[#202020] px-3 text-[11px] uppercase tracking-wide text-ide-muted max-lg:hidden">
+          <span></span>
+          <span>Project</span>
+          <span>Folder</span>
+          <span>Git</span>
+          <span>Runtime</span>
+          <span>Updated</span>
+          <span class="text-right">Actions</span>
+        </div>
         <ProjectCard
           v-for="project in filteredProjects"
           :key="project.folderName"
