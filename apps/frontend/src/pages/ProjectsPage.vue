@@ -9,6 +9,7 @@ import ProjectCard from '../components/projects/ProjectCard.vue';
 import DeleteProjectModal from '../components/projects/DeleteProjectModal.vue';
 import CreateProjectModal from '../components/projects/CreateProjectModal.vue';
 import SettingsModal from '../components/settings/SettingsModal.vue';
+import { agentsApi } from '../services/agents.api';
 import type { CreateProjectInput, Project } from '../services/projects.api';
 
 const projects = useProjectsStore();
@@ -38,6 +39,9 @@ async function createProject(input: CreateProjectInput) {
   creatingProject.value = true;
   try {
     const project = await projects.createProject(input);
+    if (input.source === 'prompt' && input.prompt?.trim() && input.agentId) {
+      await agentsApi.createTask(project.folderName, input.agentId, input.prompt.trim());
+    }
     creating.value = false;
     await projects.openProject(project.folderName);
   } finally {

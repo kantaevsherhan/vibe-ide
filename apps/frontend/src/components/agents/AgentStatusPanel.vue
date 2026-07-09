@@ -34,7 +34,7 @@ const statusTextClass = {
   not_installed: 'text-ide-muted'
 };
 
-const expectedAgents = ['Claude Code', 'Gemini', 'Codex', 'Custom CLI'];
+const expectedAgents = ['Claude Code', 'Gemini', 'Codex', 'OpenCode', 'MiMo Code', 'Custom CLI'];
 
 function displayStatus(agent: AgentListItem, sessions: AgentSession[]) {
   if (!agent.installed || !agent.enabled) return 'not_installed';

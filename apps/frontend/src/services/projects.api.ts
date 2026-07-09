@@ -23,11 +23,13 @@ export type Project = {
 };
 
 export type CreateProjectInput = {
-  source?: 'blank' | 'git';
+  source?: 'blank' | 'git' | 'prompt';
   name: string;
   folderName: string;
   description?: string;
   repositoryUrl?: string;
+  prompt?: string;
+  agentId?: string;
 };
 
 export const projectsApi = {

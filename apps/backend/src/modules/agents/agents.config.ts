@@ -13,6 +13,8 @@ const defaultAgents: AgentConfig[] = [
     enabled: true
   },
   { id: 'gemini', name: 'Gemini', command: 'gemini', args: ['-p', '{prompt}'], inputMode: 'argument', enabled: true },
+  { id: 'opencode', name: 'OpenCode', command: 'opencode', args: ['run', '{prompt}'], inputMode: 'argument', enabled: true },
+  { id: 'mimo', name: 'MiMo Code', command: 'mimo', args: ['run', '{prompt}'], inputMode: 'argument', enabled: true },
   { id: 'custom', name: 'Custom Agent', command: 'npx', args: ['my-agent'], inputMode: 'stdin', enabled: false }
 ];
 
@@ -72,8 +74,14 @@ export class AgentsConfigService {
   }
 
   private merge(partial: Partial<AgentsConfigFile>): AgentsConfigFile {
+    const agents = partial.agents ?? defaultAgents;
+    const mergedAgents = [
+      ...agents,
+      ...defaultAgents.filter((agent) => !agents.some((item) => item.id === agent.id))
+    ];
+
     return {
-      agents: (partial.agents ?? defaultAgents).map((agent) => {
+      agents: mergedAgents.map((agent) => {
         const fallback = defaultAgents.find((item) => item.id === agent.id);
         const needsKnownAgentArgsUpgrade =
           agent.id === 'codex' &&

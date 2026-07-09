@@ -93,8 +93,8 @@ export class TaskQueueService {
     return this.cleanOutput(raw);
   }
 
-  buildPrompt(context: string, task: AgentTask) {
-    return `Project context:\n${context}\n\nCurrent task:\n${task.prompt}\n\nRules:\n- You have full read/write access inside the current project directory\n- Work only inside the current project directory\n- Do not access, edit, create, or delete files outside the current project\n- Do not delete files unless necessary\n- After changes, briefly explain what changed\n`;
+  buildPrompt(context: string, task: AgentTask, projectPath: string) {
+    return `Project context:\n${context}\n\nProject root:\n${projectPath}\n\nCurrent task:\n${task.prompt}\n\nRules:\n- You have full read/write access only inside the current project directory: ${projectPath}\n- Treat ${projectPath} as the workspace boundary\n- Do not access, inspect, edit, create, move, copy, or delete files outside ${projectPath}\n- Do not run commands from outside ${projectPath}\n- Do not use absolute paths unless they point inside ${projectPath}\n- If a task requires files outside ${projectPath}, stop and explain that it is outside the allowed project scope\n- Do not delete files unless necessary\n- After changes, briefly explain what changed\n`;
   }
 
   cleanOutput(output: string) {

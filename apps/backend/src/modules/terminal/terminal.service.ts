@@ -31,7 +31,7 @@ export class TerminalService {
 
     try {
       if (message.type === 'create') {
-        await this.create(message.projectName, message.terminalId);
+        await this.create(message.projectName, message.terminalId, message.name);
         return;
       }
 
@@ -108,7 +108,7 @@ export class TerminalService {
     }
   }
 
-  private async create(projectName: string, terminalId: string) {
+  private async create(projectName: string, terminalId: string, name?: string) {
     const projectSessions = this.projectSessions(projectName);
     if (projectSessions.has(terminalId)) {
       this.broadcast(projectName, { type: 'snapshot', sessions: this.list(projectName) });
@@ -128,7 +128,7 @@ export class TerminalService {
     const session: TerminalSessionState = {
       id: terminalId,
       projectName,
-      name: `term ${projectSessions.size + 1}`,
+      name: this.normalizeName(name) || `term ${projectSessions.size + 1}`,
       output: '',
       createdAt: Date.now(),
       pty: terminal
@@ -176,6 +176,10 @@ export class TerminalService {
     const lines = output.split(/\r?\n/);
     if (lines.length <= 5000) return output;
     return lines.slice(-5000).join('\n');
+  }
+
+  private normalizeName(name: string | undefined) {
+    return name?.trim().replace(/\s+/g, ' ').slice(0, 48) ?? '';
   }
 
   private resolveShell() {

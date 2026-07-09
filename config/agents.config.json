@@ -1,0 +1,58 @@
+{
+  "agents": [
+    {
+      "id": "claude",
+      "name": "Claude Code",
+      "command": "claude",
+      "args": [
+        "-p",
+        "{prompt}"
+      ],
+      "inputMode": "argument",
+      "enabled": true
+    },
+    {
+      "id": "codex",
+      "name": "Codex",
+      "command": "codex",
+      "args": [
+        "exec",
+        "--sandbox",
+        "workspace-write",
+        "--ask-for-approval",
+        "never",
+        "{prompt}"
+      ],
+      "inputMode": "argument",
+      "enabled": true
+    },
+    {
+      "id": "gemini",
+      "name": "Gemini",
+      "command": "gemini",
+      "args": [
+        "-p",
+        "{prompt}"
+      ],
+      "inputMode": "argument",
+      "enabled": true
+    },
+    {
+      "id": "custom",
+      "name": "Custom Agent",
+      "command": "npx",
+      "args": [
+        "my-agent"
+      ],
+      "inputMode": "stdin",
+      "enabled": false
+    }
+  ],
+  "notifications": {
+    "telegram": {
+      "enabled": false,
+      "botToken": "",
+      "chatId": ""
+    }
+  }
+}

@@ -1,15 +1,19 @@
 <script setup lang="ts">
 import { Plus, TerminalSquare, X } from '@lucide/vue';
+import { ref } from 'vue';
 import { useTerminalStore } from '../../stores/terminal.store';
 
 const terminals = useTerminalStore();
+const newTerminalName = ref('');
 
 const emit = defineEmits<{
   openTerminal: [];
 }>();
 
 function create() {
-  terminals.create();
+  const name = newTerminalName.value.trim();
+  terminals.create(name || undefined);
+  newTerminalName.value = '';
   emit('openTerminal');
 }
 
@@ -27,6 +31,14 @@ function select(id: string) {
         <Plus :size="15" />
       </button>
     </header>
+
+    <form class="border-b border-ide-border px-3 pb-2" @submit.prevent="create">
+      <input
+        v-model="newTerminalName"
+        class="h-8 w-full border border-ide-border bg-ide-panel px-2 text-xs text-ide-text outline-none focus:border-ide-accent"
+        placeholder="Terminal name, e.g. Backend server"
+      />
+    </form>
 
     <div class="min-h-0 flex-1 overflow-auto thin-scrollbar">
       <p v-if="terminals.sessions.length === 0" class="px-3 py-4 text-ide-muted">No terminals yet.</p>

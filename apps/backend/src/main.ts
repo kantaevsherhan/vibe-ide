@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
+import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import websocket from '@fastify/websocket';
@@ -30,6 +31,8 @@ import { ProjectsService } from './modules/projects/projects.service.js';
 import { registerProjectsRoutes } from './modules/projects/projects.routes.js';
 import { SettingsService } from './modules/settings/settings.service.js';
 import { registerSettingsRoutes } from './modules/settings/settings.routes.js';
+import { SpeechService } from './modules/speech/speech.service.js';
+import { registerSpeechRoutes } from './modules/speech/speech.routes.js';
 import { SystemService } from './modules/system/system.service.js';
 import { registerSystemRoutes } from './modules/system/system.routes.js';
 import { TerminalService } from './modules/terminal/terminal.service.js';
@@ -75,6 +78,12 @@ await app.register(rateLimit, {
   global: false
 });
 await app.register(websocket);
+await app.register(multipart, {
+  limits: {
+    fileSize: 25 * 1024 * 1024,
+    files: 1
+  }
+});
 
 const auth = new AuthService(config);
 const requireAuth = createRequireAuth(auth);
@@ -84,6 +93,7 @@ const files = new FilesService(projects, ignore, config);
 const git = new GitService(projects, config);
 const notes = new NotesService(projects);
 const system = new SystemService(projectRoot);
+const speech = new SpeechService(projectRoot);
 const terminals = new TerminalService(projects, config);
 const taskQueue = new TaskQueueService();
 const telegram = new TelegramService(() => agentsConfigService.value);
@@ -108,6 +118,7 @@ app.addHook('preHandler', async (request, reply) => {
     url.startsWith('/api/notes/') ||
     url.startsWith('/api/git/') ||
     url.startsWith('/api/settings') ||
+    url.startsWith('/api/speech/') ||
     url.startsWith('/api/system/') ||
     url.startsWith('/api/workspace/') ||
     url.startsWith('/api/terminal/') ||
@@ -121,6 +132,7 @@ await registerFilesRoutes(app, files);
 await registerNotesRoutes(app, notes);
 await registerGitRoutes(app, git);
 await registerSettingsRoutes(app, settings);
+await registerSpeechRoutes(app, speech);
 await registerSystemRoutes(app, system);
 await registerTerminalRoutes(app, terminals, auth);
 await registerAgentsRoutes(app, agents, agentsManager, auth);

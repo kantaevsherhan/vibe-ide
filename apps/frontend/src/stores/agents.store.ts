@@ -54,6 +54,19 @@ export const useAgentsStore = defineStore('agents', () => {
     }
   }
 
+  async function loadAgents() {
+    loading.value = true;
+    error.value = null;
+    try {
+      const response = await agentsApi.list();
+      agents.value = response.agents;
+    } catch (caught) {
+      error.value = caught instanceof Error ? caught.message : 'Failed to load agents.';
+    } finally {
+      loading.value = false;
+    }
+  }
+
   async function sendTask(agentId: string, prompt: string) {
     if (!projectName.value || !prompt.trim()) return;
     error.value = null;
@@ -131,6 +144,7 @@ export const useAgentsStore = defineStore('agents', () => {
     error,
     setProject,
     refresh,
+    loadAgents,
     sendTask,
     cancel,
     retry,

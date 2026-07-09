@@ -43,7 +43,7 @@ export class AgentsManager {
     const result = await execa(checker, [agent.command], { reject: false });
     const installed = result.exitCode === 0;
     if (installed) {
-      const commandPath = result.stdout.split(/\r?\n/).find(Boolean);
+      const commandPath = this.pickExecutablePath(result.stdout);
       if (commandPath) this.commandPathCache.set(cacheKey, commandPath);
     }
     if (!installed) {
@@ -124,9 +124,9 @@ export class AgentsManager {
     await this.updateTask(projectPath, task.id, { status: 'running', startedAt: now, error: undefined });
     await this.upsertSession(projectPath, session);
 
-    const shellEnv = { ...process.env, VIBEIDE_PROJECT: projectName };
+    const shellEnv = this.buildAgentEnv(agent, projectName, projectPath);
     const context = await this.queue.readContext(projectPath);
-    const finalPrompt = this.queue.buildPrompt(context, task);
+    const finalPrompt = this.queue.buildPrompt(context, task, projectPath);
     const promptFile = await this.queue.writePromptFile(projectPath, task.id, finalPrompt);
     const launch = adapterFor(agent).build(agent, finalPrompt, promptFile);
     let ptyProcess: IPty;
@@ -262,7 +262,66 @@ export class AgentsManager {
   }
 
   private resolveCommand(agent: AgentConfig) {
-    return this.commandPathCache.get(this.cacheKey(agent)) ?? agent.command;
+    const cached = this.commandPathCache.get(this.cacheKey(agent));
+    if (cached) return cached;
+    if (os.platform() !== 'win32' || /\.[a-z0-9]+$/i.test(agent.command)) return agent.command;
+
+    const fallback = this.commandPathCache.get(`${agent.command}.cmd:${agent.args.join(' ')}`);
+    return fallback ?? agent.command;
+  }
+
+  private buildAgentEnv(agent: AgentConfig, projectName: string, projectPath: string) {
+    const env = {
+      ...process.env,
+      VIBEIDE_PROJECT: projectName,
+      VIBEIDE_PROJECT_ROOT: projectPath
+    };
+
+    const permissionConfig = JSON.stringify({
+      permission: {
+        external_directory: {
+          '*': 'deny'
+        },
+        bash: {
+          '*': 'allow',
+          'cd /*': 'deny',
+          'cd ~*': 'deny',
+          'rm -rf /*': 'deny',
+          'rm -rf ~*': 'deny'
+        }
+      }
+    });
+
+    if (agent.id === 'opencode') {
+      return {
+        ...env,
+        OPENCODE_CONFIG_CONTENT: permissionConfig
+      };
+    }
+
+    if (agent.id === 'mimo') {
+      return {
+        ...env,
+        MIMOCODE_CONFIG_CONTENT: permissionConfig,
+        MIMOCODE_PERMISSION: JSON.stringify({
+          external_directory: {
+            '*': 'deny'
+          }
+        })
+      };
+    }
+
+    return env;
+  }
+
+  private pickExecutablePath(stdout: string) {
+    const paths = stdout.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    if (os.platform() !== 'win32') return paths[0];
+
+    return (
+      paths.find((item) => /\.(cmd|exe|bat|ps1)$/i.test(item)) ??
+      paths[0]
+    );
   }
 
   private cacheKey(agent: AgentConfig) {

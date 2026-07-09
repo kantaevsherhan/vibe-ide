@@ -59,6 +59,24 @@ const terminalResize = useResizable({
   verticalGrowthDirection: 'up'
 });
 
+const agentSidebarResize = useResizable({
+  key: 'vibeide.agent-sidebar.size',
+  direction: 'horizontal',
+  defaultWidth: 380,
+  horizontalGrowthDirection: 'left'
+});
+
+const shellStyle = computed(() => ({
+  '--sidebar-width': desktopSidebarVisible.value ? `${sidebarResize.width.value}px` : '0px',
+  '--sidebar-handle-width': desktopSidebarVisible.value ? '4px' : '0px',
+  '--terminal-height': terminalPanelVisible.value ? `${terminalResize.height.value}px` : '0px',
+  '--terminal-handle-height': terminalPanelVisible.value ? '4px' : '0px',
+  '--agent-sidebar-width': desktopAgentsVisible.value ? `${agentSidebarResize.width.value}px` : '0px',
+  '--agent-sidebar-handle-width': desktopAgentsVisible.value ? '4px' : '0px',
+  '--mobile-sidebar-width': `${sidebarResize.width.value}px`,
+  '--mobile-terminal-height': terminalPanelVisible.value ? `${terminalResize.height.value}px` : '0px'
+}));
+
 const activeTitle = computed(() => {
   if (activeView.value === 'files') return 'Files';
   if (activeView.value === 'git') return 'Git';
@@ -155,17 +173,7 @@ onBeforeUnmount(() => {
     <TitleBar :project-name="titleProjectName" />
     <div
       class="ide-shell h-full w-full bg-ide-main text-[13px] text-ide-text"
-      :style="
-        !isMobile
-          ? {
-              '--sidebar-width': desktopSidebarVisible ? `${sidebarResize.width.value}px` : '0px',
-              '--sidebar-handle-width': desktopSidebarVisible ? '4px' : '0px',
-              '--terminal-height': terminalPanelVisible ? `${terminalResize.height.value}px` : '0px',
-              '--terminal-handle-height': terminalPanelVisible ? '4px' : '0px',
-              '--agent-sidebar-width': desktopAgentsVisible ? '380px' : '0px'
-            }
-          : undefined
-      "
+      :style="shellStyle"
     >
     <header class="mobile-header">
       <button class="touch-button" title="Open sidebar" @click="drawerOpen = true">
@@ -195,6 +203,7 @@ onBeforeUnmount(() => {
       :class="{ 'resize-handle-active': sidebarResize.isResizing.value }"
       title="Resize sidebar"
       @mousedown="sidebarResize.startResize"
+      @touchstart="sidebarResize.startResize"
     />
 
     <main class="editor-area min-w-0">
@@ -206,10 +215,19 @@ onBeforeUnmount(() => {
         :class="{ 'resize-handle-active': terminalResize.isResizing.value }"
         title="Resize terminal"
         @mousedown="terminalResize.startResize"
+        @touchstart="terminalResize.startResize"
       />
       <TerminalView v-if="!isMobile && terminalPanelVisible" class="desktop-terminal" @close-panel="terminalPanelVisible = false" />
     </main>
 
+    <button
+      v-if="!isMobile && desktopAgentsVisible"
+      class="resize-handle-vertical"
+      :class="{ 'resize-handle-active': agentSidebarResize.isResizing.value }"
+      title="Resize AI agents"
+      @mousedown="agentSidebarResize.startResize"
+      @touchstart="agentSidebarResize.startResize"
+    />
     <AgentChatSidebar v-if="!isMobile && desktopAgentsVisible" closable class="desktop-agent-sidebar" @close="desktopAgentsVisible = false" />
 
     <div v-if="isMobile && drawerOpen" class="mobile-scrim" @click="drawerOpen = false" />
@@ -224,9 +242,24 @@ onBeforeUnmount(() => {
       <GitPanel v-else-if="activeView === 'git'" />
       <TerminalPanel v-else-if="activeView === 'terminal'" @open-terminal="terminalPanelVisible = true" />
       <NotesPanel v-else-if="activeView === 'notes'" />
+      <button
+        v-if="drawerOpen"
+        class="mobile-drawer-resize-handle"
+        :class="{ 'resize-handle-active': sidebarResize.isResizing.value }"
+        title="Resize sidebar"
+        @mousedown="sidebarResize.startResize"
+        @touchstart="sidebarResize.startResize"
+      />
     </aside>
 
     <section v-if="isMobile && activeView === 'terminal' && terminalPanelVisible" class="mobile-terminal-overlay">
+      <button
+        class="mobile-terminal-resize-handle"
+        :class="{ 'resize-handle-active': terminalResize.isResizing.value }"
+        title="Resize terminal"
+        @mousedown="terminalResize.startResize"
+        @touchstart="terminalResize.startResize"
+      />
       <TerminalView />
     </section>
 
@@ -246,7 +279,7 @@ onBeforeUnmount(() => {
       </button>
     </nav>
 
-    <div v-if="sidebarResize.isResizing.value || terminalResize.isResizing.value" class="resize-shield" />
+    <div v-if="sidebarResize.isResizing.value || terminalResize.isResizing.value || agentSidebarResize.isResizing.value" class="resize-shield" />
       <SettingsModal :open="settingsOpen" @close="settingsOpen = false" />
     </div>
   </div>

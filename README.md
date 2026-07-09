@@ -14,7 +14,7 @@ The app combines a Vue/Monaco frontend with a Fastify backend, project-scoped fi
 - `.vibeignore` plus default ignored folders, with `Open Anyway` for manual inspection.
 - WebSocket terminals scoped to the current project.
 - Git status/diff scoped only to the project root, with optional `Initialize repository`.
-- CLI AI agents through `node-pty`: Claude Code, Codex, Gemini, or a custom command from `config/settings.json`.
+- CLI AI agents through `node-pty`: Claude Code, Codex, Gemini, OpenCode, MiMo Code, or a custom command from `config/settings.json`.
 - Persistent file-backed task queue and logs under `.vibeide/agents`.
 - Telegram notifications for agent task events.
 - Compact Project Runtime Dashboard and Workspace Health widgets.
@@ -102,6 +102,17 @@ http://127.0.0.1:8080
 ```
 
 Do not open `apps/frontend/dist/index.html` directly as a file. The built frontend must be served by the backend so API routes, auth cookies, and WebSocket terminals work.
+
+## Voice Dictation
+
+VibeIDE supports local speech-to-text for prompts through a Node.js Whisper pipeline. Audio is recorded in the browser, sent to the backend, transcribed locally on the server, and returned as text. No Python runtime and no OpenAI Whisper API key are required.
+
+Current voice input surfaces:
+
+- `Create Project` -> `From prompt` -> `Dictate prompt`.
+- IDE AI Agents chat composer -> microphone button.
+
+The backend uses the `tiny` Whisper model by default. Model files are downloaded automatically on first use and cached under `.cache/models`. Set `VIBEIDE_MODEL_CACHE` before starting the backend if you want to store model files somewhere else.
 
 ## Icons
 
@@ -473,6 +484,8 @@ Example:
     { "id": "claude", "name": "Claude Code", "command": "claude", "args": ["-p", "{prompt}"], "inputMode": "argument", "enabled": true },
     { "id": "codex", "name": "Codex", "command": "codex", "args": ["exec", "--sandbox", "workspace-write", "{prompt}"], "inputMode": "argument", "enabled": true },
     { "id": "gemini", "name": "Gemini", "command": "gemini", "args": ["-p", "{prompt}"], "inputMode": "argument", "enabled": true },
+    { "id": "opencode", "name": "OpenCode", "command": "opencode", "args": ["run", "{prompt}"], "inputMode": "argument", "enabled": true },
+    { "id": "mimo", "name": "MiMo Code", "command": "mimo", "args": ["run", "{prompt}"], "inputMode": "argument", "enabled": true },
     { "id": "custom", "name": "Custom Agent", "command": "npx", "args": ["my-agent"], "inputMode": "stdin", "enabled": false }
   ],
   "notifications": {
@@ -533,6 +546,62 @@ The Agents panel shows the resolved CLI path and startup errors, which helps cat
 Codex is configured with `--sandbox workspace-write`, so it can read and write inside the opened project while staying constrained to that workspace. VibeIDE strips the older unsupported `--ask-for-approval` argument when launching Codex through the adapter.
 
 The frontend cannot pass arbitrary commands or working directories. It can only send prompts to agents declared in `settings.json`.
+
+### OpenCode
+
+Install OpenCode on the server where VibeIDE runs:
+
+```bash
+npm install -g opencode-ai
+opencode auth login
+```
+
+VibeIDE's built-in OpenCode agent runs:
+
+```bash
+opencode run "<prompt>"
+```
+
+As a custom agent:
+
+```json
+{
+  "id": "custom-opencode",
+  "name": "Custom OpenCode",
+  "command": "opencode",
+  "args": ["run", "{prompt}"],
+  "inputMode": "argument",
+  "enabled": true
+}
+```
+
+### MiMo Code
+
+Install MiMo Code on the server where VibeIDE runs:
+
+```bash
+npm install -g @mimo-ai/cli
+mimo auth login
+```
+
+VibeIDE's built-in MiMo Code agent runs:
+
+```bash
+mimo run "<prompt>"
+```
+
+As a custom agent:
+
+```json
+{
+  "id": "custom-mimo",
+  "name": "Custom MiMo Code",
+  "command": "mimo",
+  "args": ["run", "{prompt}"],
+  "inputMode": "argument",
+  "enabled": true
+}
+```
 
 ## Task Queue
 

@@ -33,12 +33,12 @@ export const useTerminalStore = defineStore('terminal', () => {
     socket.connect(projectName.value, handleMessage);
   }
 
-  function create() {
+  function create(name?: string) {
     if (!projectName.value) return null;
     connect();
     const id = createTerminalId();
     activeId.value = id;
-    socket.send({ type: 'create', projectName: projectName.value, terminalId: id });
+    socket.send({ type: 'create', projectName: projectName.value, terminalId: id, name });
     return id;
   }
 

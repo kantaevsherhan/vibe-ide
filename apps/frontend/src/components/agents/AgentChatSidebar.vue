@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { Bot, Brain, ChevronDown, Clipboard, Command, MessageSquarePlus, MoreHorizontal, RotateCw, Send, Settings, Sparkles, Trash2, X } from '@lucide/vue';
+import { Bot, Brain, ChevronDown, Clipboard, Command, MessageSquarePlus, Mic, MoreHorizontal, RotateCw, Send, Settings, SlidersHorizontal, Sparkles, Trash2, X } from '@lucide/vue';
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { useResizable } from '../../composables/useResizable';
+import { useVoiceInput } from '../../composables/useVoiceInput';
 import { useAgentsStore } from '../../stores/agents.store';
 import type { AgentListItem, AgentSession, AgentStatus, AgentTask } from '../../types/agents';
 
@@ -20,12 +22,28 @@ const chatListOpen = ref(false);
 const hiddenTaskIds = ref<Set<string>>(new Set(readHiddenTaskIds()));
 const logContainer = ref<HTMLElement | null>(null);
 const activeDetailTab = ref<'logs' | 'details' | 'files' | 'output'>('logs');
+const voice = useVoiceInput();
+const contextOpen = ref(false);
+const contextOptions = ref({
+  project: true,
+  openFiles: true,
+  gitDiff: true,
+  terminalOutput: true
+});
+const detailResize = useResizable({
+  key: 'vibeide:agents:detail-height',
+  direction: 'vertical',
+  defaultHeight: 210,
+  verticalGrowthDirection: 'up'
+});
 
 const iconMap = {
   claude: Bot,
   chatgpt: Brain,
   gemini: Sparkles,
   codex: Command,
+  opencode: Command,
+  mimo: Sparkles,
   custom: Settings
 };
 
@@ -55,6 +73,8 @@ const expectedAgents = [
   { id: 'claude', name: 'Claude Code' },
   { id: 'gemini', name: 'Gemini' },
   { id: 'codex', name: 'Codex' },
+  { id: 'opencode', name: 'OpenCode' },
+  { id: 'mimo', name: 'MiMo Code' },
   { id: 'custom', name: 'Custom CLI' }
 ];
 
@@ -79,6 +99,10 @@ const selectedTask = computed(() => {
 });
 const selectedLog = computed(() => (selectedTask.value ? agents.logs[selectedTask.value.id] ?? '' : ''));
 const canSend = computed(() => Boolean(selectedAgent.value?.enabled && selectedAgent.value.installed && prompt.value.trim()));
+const contextSummary = computed(() => {
+  const enabled = Object.values(contextOptions.value).filter(Boolean).length;
+  return `${enabled} context ${enabled === 1 ? 'source' : 'sources'}`;
+});
 
 onMounted(async () => {
   await agents.refresh();
@@ -134,6 +158,13 @@ async function sendTask() {
   if (!canSend.value || !selectedAgent.value) return;
   await agents.sendTask(selectedAgent.value.id, prompt.value);
   prompt.value = '';
+  contextOpen.value = false;
+}
+
+async function toggleVoiceInput() {
+  await voice.toggle((text) => {
+    prompt.value = prompt.value ? `${prompt.value.trimEnd()}\n${text}` : text;
+  });
 }
 
 function selectAgent(agent: AgentListItem) {
@@ -172,7 +203,11 @@ async function copyLog() {
 </script>
 
 <template>
-  <aside class="agent-chat-sidebar" :class="{ 'is-mobile': props.mobile }">
+  <aside
+    class="agent-chat-sidebar"
+    :class="{ 'is-mobile': props.mobile }"
+    :style="{ '--agent-detail-height': `${detailResize.height.value}px` }"
+  >
     <header class="agent-chat-header">
       <div class="min-w-0">
         <div class="flex items-center gap-2">
@@ -245,6 +280,14 @@ async function copyLog() {
       </div>
     </section>
 
+    <button
+      class="resize-handle-horizontal agent-detail-resize"
+      :class="{ 'resize-handle-active': detailResize.isResizing.value }"
+      title="Resize agent details"
+      @mousedown="detailResize.startResize"
+      @touchstart="detailResize.startResize"
+    />
+
     <section class="agent-detail-panel">
       <header class="flex h-8 items-center justify-between border-b border-ide-border px-2">
         <div class="flex min-w-0 overflow-x-auto thin-scrollbar">
@@ -289,11 +332,54 @@ async function copyLog() {
         placeholder="Ask the selected agent to change, inspect, or explain this project..."
       />
       <div class="flex items-center justify-between gap-2">
-        <div class="truncate text-[11px] text-ide-muted">Context: project, open files, Git diff, terminal output</div>
-        <button class="inline-flex h-8 shrink-0 items-center gap-2 bg-ide-accent px-3 text-xs font-medium text-white hover:bg-[#1188d8] disabled:cursor-not-allowed disabled:opacity-50" :disabled="!canSend">
-          <Send :size="14" />
-          Send
-        </button>
+        <div class="min-w-0">
+          <div class="truncate text-[11px] text-ide-muted">Context: {{ contextSummary }}</div>
+          <div v-if="voice.error.value" class="truncate text-[11px] text-red-300">{{ voice.error.value }}</div>
+        </div>
+        <div class="relative flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            class="agent-icon-button h-8 w-8"
+            :class="{ 'is-active': contextOpen }"
+            title="Manage context"
+            @click="contextOpen = !contextOpen"
+          >
+            <SlidersHorizontal :size="14" />
+          </button>
+          <div v-if="contextOpen" class="agent-context-menu">
+            <div class="mb-2 text-[11px] uppercase tracking-wide text-ide-muted">Context</div>
+            <label class="agent-context-option">
+              <input v-model="contextOptions.project" type="checkbox" />
+              Project
+            </label>
+            <label class="agent-context-option">
+              <input v-model="contextOptions.openFiles" type="checkbox" />
+              Open files
+            </label>
+            <label class="agent-context-option">
+              <input v-model="contextOptions.gitDiff" type="checkbox" />
+              Git diff
+            </label>
+            <label class="agent-context-option">
+              <input v-model="contextOptions.terminalOutput" type="checkbox" />
+              Terminal output
+            </label>
+          </div>
+          <button
+            type="button"
+            class="agent-icon-button h-8 w-8"
+            :class="{ 'is-recording': voice.isRecording.value, 'is-active': voice.isRecording.value || voice.isTranscribing.value }"
+            :title="voice.isRecording.value ? 'Stop dictation' : 'Dictate prompt'"
+            :disabled="voice.isTranscribing.value"
+            @click="toggleVoiceInput"
+          >
+            <Mic :size="14" />
+          </button>
+          <button class="inline-flex h-8 items-center gap-2 bg-ide-accent px-3 text-xs font-medium text-white hover:bg-[#1188d8] disabled:cursor-not-allowed disabled:opacity-50" :disabled="!canSend">
+            <Send :size="14" />
+            {{ voice.isTranscribing.value ? 'Transcribing...' : 'Send' }}
+          </button>
+        </div>
       </div>
     </form>
   </aside>

@@ -1,0 +1,5 @@
+agents/
+sessions/
+logs/
+tasks.json
+state.json

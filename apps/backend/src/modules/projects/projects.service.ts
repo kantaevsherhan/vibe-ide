@@ -82,7 +82,7 @@ export class ProjectsService {
   async create(input: CreateProjectInput): Promise<Project> {
     this.assertProjectName(input.folderName);
     const source = input.source ?? 'blank';
-    if (source !== 'blank' && source !== 'git') {
+    if (source !== 'blank' && source !== 'git' && source !== 'prompt') {
       throw Object.assign(new Error('Invalid project source.'), { statusCode: 400 });
     }
     const now = new Date().toISOString();
@@ -107,6 +107,9 @@ export class ProjectsService {
     }
 
     await this.writeMetadata(projectPath, metadata);
+    if (source === 'prompt' && input.prompt?.trim()) {
+      await this.writePrompt(projectPath, input.prompt, input.agentId);
+    }
     return this.projectFromMetadata(projectNamePattern.test(input.folderName) ? input.folderName : metadata.folderName, projectPath, metadata);
   }
 
@@ -197,6 +200,24 @@ export class ProjectsService {
     await fs.mkdir(this.metadataDir(projectPath), { recursive: true });
     await this.ensureVibeIdeGitignore(projectPath);
     await fs.writeFile(this.metadataPath(projectPath), `${JSON.stringify(metadata, null, 2)}\n`, 'utf8');
+  }
+
+  private async writePrompt(projectPath: string, prompt: string, agentId?: string) {
+    const notesDir = path.join(this.metadataDir(projectPath), 'notes');
+    const promptPath = path.join(notesDir, 'Project Prompt.md');
+    const content = [
+      '# Project Prompt',
+      '',
+      agentId ? `Agent: ${agentId}` : null,
+      '',
+      prompt.trim(),
+      ''
+    ]
+      .filter((line) => line !== null)
+      .join('\n');
+
+    await fs.mkdir(notesDir, { recursive: true });
+    await fs.writeFile(promptPath, content, 'utf8');
   }
 
   private async cloneRepository(repositoryUrl: string | undefined, projectPath: string) {

@@ -7,6 +7,7 @@ export interface UseResizableOptions {
   defaultWidth?: number;
   defaultHeight?: number;
   direction: ResizeDirection;
+  horizontalGrowthDirection?: 'right' | 'left';
   verticalGrowthDirection?: 'down' | 'up';
 }
 
@@ -74,15 +75,28 @@ export function useResizable(options: UseResizableOptions) {
     window.dispatchEvent(new CustomEvent(resizeEventName));
   }
 
-  function onMouseMove(event: MouseEvent) {
+  function eventPoint(event: MouseEvent | TouchEvent | PointerEvent) {
+    if ('touches' in event) {
+      const touch = event.touches[0] ?? event.changedTouches[0];
+      return { clientX: touch?.clientX ?? startX, clientY: touch?.clientY ?? startY };
+    }
+
+    return { clientX: event.clientX, clientY: event.clientY };
+  }
+
+  function onResizeMove(event: MouseEvent | TouchEvent | PointerEvent) {
     if (!isResizing.value) return;
+    event.preventDefault();
+    const point = eventPoint(event);
 
     if (options.direction === 'horizontal' || options.direction === 'both') {
-      width.value = clamp(startWidth + event.clientX - startX, 0, viewportWidthLimit());
+      const deltaX = point.clientX - startX;
+      const nextWidth = options.horizontalGrowthDirection === 'left' ? startWidth - deltaX : startWidth + deltaX;
+      width.value = clamp(nextWidth, 0, viewportWidthLimit());
     }
 
     if (options.direction === 'vertical' || options.direction === 'both') {
-      const deltaY = event.clientY - startY;
+      const deltaY = point.clientY - startY;
       const nextHeight = options.verticalGrowthDirection === 'up' ? startHeight - deltaY : startHeight + deltaY;
       height.value = clamp(nextHeight, 0, viewportHeightLimit());
     }
@@ -96,25 +110,34 @@ export function useResizable(options: UseResizableOptions) {
     isResizing.value = false;
     document.body.style.cursor = previousCursor;
     document.body.style.userSelect = previousUserSelect;
-    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mousemove', onResizeMove);
     document.removeEventListener('mouseup', stopResize);
+    document.removeEventListener('touchmove', onResizeMove);
+    document.removeEventListener('touchend', stopResize);
+    document.removeEventListener('pointermove', onResizeMove);
+    document.removeEventListener('pointerup', stopResize);
     persistAndNotify();
   }
 
-  function startResize(event: MouseEvent) {
+  function startResize(event: MouseEvent | TouchEvent | PointerEvent) {
     event.preventDefault();
     event.stopPropagation();
+    const point = eventPoint(event);
     isResizing.value = true;
-    startX = event.clientX;
-    startY = event.clientY;
+    startX = point.clientX;
+    startY = point.clientY;
     startWidth = width.value;
     startHeight = height.value;
     previousCursor = document.body.style.cursor;
     previousUserSelect = document.body.style.userSelect;
     document.body.style.cursor = cursor.value;
     document.body.style.userSelect = 'none';
-    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mousemove', onResizeMove);
     document.addEventListener('mouseup', stopResize);
+    document.addEventListener('touchmove', onResizeMove, { passive: false });
+    document.addEventListener('touchend', stopResize);
+    document.addEventListener('pointermove', onResizeMove);
+    document.addEventListener('pointerup', stopResize);
   }
 
   onBeforeUnmount(stopResize);

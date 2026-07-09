@@ -13,6 +13,8 @@ const iconMap = {
   chatgpt: Brain,
   gemini: Sparkles,
   codex: Command,
+  opencode: Command,
+  mimo: Sparkles,
   custom: Settings
 };
 
@@ -43,6 +45,8 @@ const expectedAgents = [
   { id: 'chatgpt', name: 'ChatGPT' },
   { id: 'gemini', name: 'Gemini' },
   { id: 'codex', name: 'Codex' },
+  { id: 'opencode', name: 'OpenCode' },
+  { id: 'mimo', name: 'MiMo Code' },
   { id: 'custom', name: 'Custom CLI' }
 ];
 

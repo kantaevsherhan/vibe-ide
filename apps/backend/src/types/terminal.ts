@@ -1,5 +1,5 @@
 export type TerminalMessage =
-  | { type: 'create'; projectName: string; terminalId: string }
+  | { type: 'create'; projectName: string; terminalId: string; name?: string }
   | { type: 'input'; projectName: string; terminalId: string; data: string }
   | { type: 'resize'; projectName: string; terminalId: string; cols: number; rows: number }
   | { type: 'close'; projectName: string; terminalId: string };
