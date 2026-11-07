@@ -2,15 +2,47 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { AgentSession, AgentTask } from './agents.types.js';
+import { writeAtomicJson } from '../security/atomic-json.js';
 
 const ansiPattern =
   /(?:\u001B\][\s\S]*?(?:\u0007|\u001B\\))|(?:[\u001B\u009B][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[a-zA-Z\d]*)*)?\u0007)|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~])))/g;
 
 export class TaskQueueService {
+  private readonly writes = new Map<string, Promise<void>>();
+
+  private async serialized<T>(file: string, operation: () => Promise<T>): Promise<T> {
+    const previous = this.writes.get(file) ?? Promise.resolve();
+    const pending = previous.then(operation);
+    const tail = pending.then(() => {}, () => {});
+    this.writes.set(file, tail);
+    try {
+      return await pending;
+    } finally {
+      if (this.writes.get(file) === tail) this.writes.delete(file);
+    }
+  }
+
+  async mutateTasks<T>(projectPath: string, update: (tasks: AgentTask[]) => T) {
+    return this.serialized(this.tasksPath(projectPath), async () => {
+      const tasks = await this.loadTasks(projectPath);
+      const before = JSON.stringify(tasks);
+      const result = update(tasks);
+      if (JSON.stringify(tasks) !== before) await writeAtomicJson(this.tasksPath(projectPath), tasks);
+      return result;
+    });
+  }
+
+  async mutateSessions(projectPath: string, update: (sessions: AgentSession[]) => void) {
+    return this.serialized(this.sessionsPath(projectPath), async () => {
+      const sessions = await this.loadSessions(projectPath);
+      const before = JSON.stringify(sessions);
+      update(sessions);
+      if (JSON.stringify(sessions) !== before) await writeAtomicJson(this.sessionsPath(projectPath), sessions);
+    });
+  }
+
   async ensureProjectState(projectPath: string) {
     await fs.mkdir(this.logsDir(projectPath), { recursive: true });
-    await this.ensureJsonFile(this.tasksPath(projectPath), []);
-    await this.ensureJsonFile(this.sessionsPath(projectPath), []);
     await this.ensureContext(projectPath);
   }
 
@@ -24,38 +56,34 @@ export class TaskQueueService {
     return this.readJson<AgentTask[]>(this.tasksPath(projectPath), []);
   }
 
-  async saveTasks(projectPath: string, tasks: AgentTask[]) {
-    await this.ensureProjectState(projectPath);
-    await fs.writeFile(this.tasksPath(projectPath), `${JSON.stringify(tasks, null, 2)}\n`, 'utf8');
-  }
-
   async recoverInterruptedTasks(projectPath: string, isActive: (taskId: string) => boolean) {
-    const tasks = await this.loadTasks(projectPath);
-    let changed = false;
-    const recovered = tasks.map((task) => {
-      if ((task.status === 'running' || task.status === 'waiting') && !isActive(task.id)) {
-        changed = true;
-        return {
-          ...task,
-          status: 'error' as const,
-          error: task.error ?? 'Backend restarted while this task was active.',
-          updatedAt: new Date().toISOString()
-        };
+    const recovered = await this.mutateTasks(projectPath, (tasks) => {
+      for (const task of tasks) {
+        if ((task.status === 'running' || task.status === 'waiting') && !isActive(task.id)) {
+          Object.assign(task, {
+            status: 'error',
+            error: task.error ?? 'Backend restarted while this task was active.',
+            updatedAt: new Date().toISOString(),
+            finishedAt: new Date().toISOString()
+          });
+        }
       }
-      return task;
+      return tasks;
     });
-    if (changed) await this.saveTasks(projectPath, recovered);
+    await this.mutateSessions(projectPath, (sessions) => {
+      for (const session of sessions) {
+        if (session.currentTaskId && !isActive(session.currentTaskId) && ['running', 'waiting', 'thinking'].includes(session.status)) {
+          session.status = 'error';
+          session.updatedAt = new Date().toISOString();
+        }
+      }
+    });
     return recovered;
   }
 
   async loadSessions(projectPath: string) {
     await this.ensureProjectState(projectPath);
     return this.readJson<AgentSession[]>(this.sessionsPath(projectPath), []);
-  }
-
-  async saveSessions(projectPath: string, sessions: AgentSession[]) {
-    await this.ensureProjectState(projectPath);
-    await fs.writeFile(this.sessionsPath(projectPath), `${JSON.stringify(sessions, null, 2)}\n`, 'utf8');
   }
 
   createTask(projectName: string, agentId: string, prompt: string): AgentTask {
@@ -123,29 +151,18 @@ export class TaskQueueService {
 
   private async ensureContext(projectPath: string) {
     const contextPath = this.contextPath(projectPath);
-    try {
-      await fs.access(contextPath);
-    } catch {
-      await fs.mkdir(path.dirname(contextPath), { recursive: true });
-      await fs.writeFile(contextPath, `# Project Context\n\nProject: ${path.basename(projectPath)}\n\nRules:\n- Work only inside this project\n`, 'utf8');
-    }
-  }
-
-  private async ensureJsonFile(filePath: string, fallback: unknown) {
-    try {
-      await fs.access(filePath);
-    } catch {
-      await fs.mkdir(path.dirname(filePath), { recursive: true });
-      await fs.writeFile(filePath, `${JSON.stringify(fallback, null, 2)}\n`, 'utf8');
-    }
+    await fs.mkdir(path.dirname(contextPath), { recursive: true });
+    await fs.writeFile(contextPath, `# Project Context\n\nProject: ${path.basename(projectPath)}\n\nRules:\n- Work only inside this project\n`, { flag: 'wx' })
+      .catch((error: NodeJS.ErrnoException) => { if (error.code !== 'EEXIST') throw error; });
   }
 
   private async readJson<T>(filePath: string, fallback: T): Promise<T> {
     try {
       const raw = await fs.readFile(filePath, 'utf8');
       return JSON.parse(raw.replace(/^\uFEFF/, '')) as T;
-    } catch {
-      return fallback;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return fallback;
+      throw error;
     }
   }
 }

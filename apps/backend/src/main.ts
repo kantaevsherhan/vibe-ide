@@ -3,7 +3,6 @@ import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
-import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import websocket from '@fastify/websocket';
@@ -15,6 +14,7 @@ import { registerAuthRoutes } from './modules/auth/auth.routes.js';
 import { AgentsConfigService } from './modules/agents/agents.config.js';
 import { AgentsManager } from './modules/agents/agents.manager.js';
 import { AgentsService } from './modules/agents/agents.service.js';
+import { AutomationService } from './modules/agents/automation.service.js';
 import { registerAgentsRoutes } from './modules/agents/agents.routes.js';
 import { NotificationsService } from './modules/agents/notifications.service.js';
 import { TaskQueueService } from './modules/agents/task-queue.service.js';
@@ -31,8 +31,6 @@ import { ProjectsService } from './modules/projects/projects.service.js';
 import { registerProjectsRoutes } from './modules/projects/projects.routes.js';
 import { SettingsService } from './modules/settings/settings.service.js';
 import { registerSettingsRoutes } from './modules/settings/settings.routes.js';
-import { SpeechService } from './modules/speech/speech.service.js';
-import { registerSpeechRoutes } from './modules/speech/speech.routes.js';
 import { SystemService } from './modules/system/system.service.js';
 import { registerSystemRoutes } from './modules/system/system.routes.js';
 import { TerminalService } from './modules/terminal/terminal.service.js';
@@ -78,12 +76,6 @@ await app.register(rateLimit, {
   global: false
 });
 await app.register(websocket);
-await app.register(multipart, {
-  limits: {
-    fileSize: 25 * 1024 * 1024,
-    files: 1
-  }
-});
 
 const auth = new AuthService(config);
 const requireAuth = createRequireAuth(auth);
@@ -93,22 +85,22 @@ const files = new FilesService(projects, ignore, config);
 const git = new GitService(projects, config);
 const notes = new NotesService(projects);
 const system = new SystemService(projectRoot);
-const speech = new SpeechService(projectRoot);
 const terminals = new TerminalService(projects, config);
 const taskQueue = new TaskQueueService();
 const telegram = new TelegramService(() => agentsConfigService.value);
 const notifications = new NotificationsService(telegram);
-const agentsManager = new AgentsManager(taskQueue, notifications);
+const agentsManager = new AgentsManager(taskQueue, notifications, agentsConfigService);
 const agents = new AgentsService(projects, agentsConfigService, taskQueue, agentsManager);
 const health = new HealthService(git, terminals, agents);
-const settings = new SettingsService(agentsConfigService, workspace, config, telegram);
+const settings = new SettingsService(agentsConfigService, workspace, config, telegram, projects);
+const automation = new AutomationService(agentsConfigService, agents);
 projects.setTerminalCountProvider((projectName) => terminals.count(projectName));
 projects.setProjectDeleteProvider((projectName) => terminals.closeProject(projectName));
 projects.setGitHealthProvider((projectName) => git.health(projectName));
 projects.setAgentsHealthProvider((projectName) => agents.runtimeSummary(projectName));
 
 await registerAuthRoutes(app, auth);
-app.get('/api/health', async () => ({ ok: true }));
+app.get('/api/health', async () => ({ ok: true, version: '0.2.0' }));
 app.addHook('preHandler', async (request, reply) => {
   const url = request.raw.url ?? '';
   if (
@@ -118,7 +110,6 @@ app.addHook('preHandler', async (request, reply) => {
     url.startsWith('/api/notes/') ||
     url.startsWith('/api/git/') ||
     url.startsWith('/api/settings') ||
-    url.startsWith('/api/speech/') ||
     url.startsWith('/api/system/') ||
     url.startsWith('/api/workspace/') ||
     url.startsWith('/api/terminal/') ||
@@ -132,7 +123,8 @@ await registerFilesRoutes(app, files);
 await registerNotesRoutes(app, notes);
 await registerGitRoutes(app, git);
 await registerSettingsRoutes(app, settings);
-await registerSpeechRoutes(app, speech);
+app.get('/api/settings/automation', async () => ({ status: automation.status }));
+app.post('/api/settings/automation/check', async () => ({ status: await automation.tick(true) }));
 await registerSystemRoutes(app, system);
 await registerTerminalRoutes(app, terminals, auth);
 await registerAgentsRoutes(app, agents, agentsManager, auth);
@@ -144,14 +136,14 @@ if (existsSync(frontendDist)) {
   await app.register(fastifyStatic, {
     root: frontendDist,
     wildcard: false,
-    setHeaders: (response, filePath) => {
+    setHeaders: (reply, filePath) => {
       if (path.basename(filePath) === 'index.html') {
-        response.setHeader('Cache-Control', 'no-store');
+        reply.header('Cache-Control', 'no-store');
         return;
       }
 
       if (filePath.includes(`${path.sep}assets${path.sep}`)) {
-        response.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        reply.header('Cache-Control', 'public, max-age=31536000, immutable');
       }
     }
   });
@@ -189,10 +181,17 @@ app.setErrorHandler((error: FastifyError, _request, reply) => {
 const port = Number(process.env.PORT ?? config.server.port);
 const host = process.env.HOST ?? config.server.host;
 
+app.addHook('onClose', async () => { automation.stop(); agentsManager.shutdown(); });
+for (const signal of ['SIGTERM', 'SIGINT'] as const) {
+  process.once(signal, () => { void app.close(); });
+}
+
 console.log(`Starting VibeIDE backend on ${host}:${port}...`);
 
 try {
   await app.listen({ port, host });
+  await agents.resume();
+  automation.start();
   console.log(`VibeIDE backend listening on http://${host}:${port}`);
 } catch (error) {
   if ((error as NodeJS.ErrnoException).code === 'EADDRINUSE') {

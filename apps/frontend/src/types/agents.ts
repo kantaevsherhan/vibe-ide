@@ -1,6 +1,9 @@
 export type AgentStatus = 'idle' | 'running' | 'thinking' | 'waiting' | 'error' | 'finished' | 'stopped' | 'not_installed';
 export type TaskStatus = 'queued' | 'running' | 'waiting' | 'done' | 'error' | 'stopped' | 'cancelled';
 
+export type RunOptions = { model?: string; effort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max' };
+export type TaskOptions = { run?: RunOptions; reviewer?: RunOptions & { agentId: 'codex' | 'claude' } };
+
 export type AgentConfig = {
   id: string;
   name: string;
@@ -29,7 +32,7 @@ export type AgentSession = {
   lastOutput?: string;
 };
 
-export type AgentTask = {
+export type AgentTask = TaskOptions & {
   id: string;
   projectName: string;
   agentId: string;
@@ -40,6 +43,8 @@ export type AgentTask = {
   startedAt?: string;
   finishedAt?: string;
   error?: string;
+  reviewOf?: string;
+  reviewTaskId?: string;
 };
 
 export type AgentWsMessage =

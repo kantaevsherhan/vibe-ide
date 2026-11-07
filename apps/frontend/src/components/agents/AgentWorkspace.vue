@@ -2,7 +2,7 @@
 import { computed, watch } from 'vue';
 import { useResizable } from '../../composables/useResizable';
 import { useAgentsStore } from '../../stores/agents.store';
-import type { AgentListItem, AgentStatus, AgentTask } from '../../types/agents';
+import type { AgentListItem, AgentStatus, AgentTask, TaskOptions } from '../../types/agents';
 import AgentHeader from './AgentHeader.vue';
 import AgentLogsPanel from './AgentLogsPanel.vue';
 import TaskComposer from './TaskComposer.vue';
@@ -27,6 +27,7 @@ const activeTask = computed(() => {
 const activeLog = computed(() => (activeTask.value ? agents.logs[activeTask.value.id] ?? '' : ''));
 const status = computed<AgentStatus>(() => statusFor(agent.value, activeTask.value));
 const canSend = computed(() => Boolean(agent.value?.enabled && agent.value.installed && props.agentId));
+const reviewers = computed(() => agents.agents.filter((item) => item.enabled && item.installed && ['codex', 'claude'].includes(item.id)));
 
 const gridStyle = computed(() => ({
   gridTemplateColumns: `${Math.max(split.width.value, 260)}px 4px minmax(0, 1fr)`
@@ -43,13 +44,12 @@ watch(
 function statusFor(nextAgent: AgentListItem | null, task: AgentTask | null): AgentStatus {
   if (!nextAgent?.enabled) return 'stopped';
   if (!nextAgent.installed) return 'not_installed';
-  const session = agents.sessions.find((item) => item.agentId === nextAgent.id);
+  const session = agents.sessions.slice().reverse().find((item) => item.agentId === nextAgent.id);
   return session?.status ?? (task?.status === 'running' ? 'running' : nextAgent.status ?? 'idle');
 }
 
-async function sendTask(prompt: string) {
-  if (!props.agentId) return;
-  await agents.sendTask(props.agentId, prompt);
+async function sendTask(prompt: string, options: TaskOptions) {
+  return props.agentId ? agents.sendTask(props.agentId, prompt, options) : false;
 }
 
 async function stopTask() {
@@ -81,7 +81,7 @@ function clearLog() {
     />
 
     <div class="hidden min-h-0 md:grid" :style="gridStyle">
-      <TaskComposer :agent="agent" :disabled="!canSend" @send="sendTask" />
+      <TaskComposer :agent="agent" :disabled="!canSend" :sending="agents.sending" :reviewers="reviewers" :submit-task="sendTask" />
       <button
         class="resize-handle-vertical"
         :class="{ 'resize-handle-active': split.isResizing.value }"
@@ -92,7 +92,7 @@ function clearLog() {
     </div>
 
     <div class="grid min-h-0 grid-rows-[minmax(320px,auto)_minmax(0,1fr)] md:hidden">
-      <TaskComposer :agent="agent" :disabled="!canSend" @send="sendTask" />
+      <TaskComposer :agent="agent" :disabled="!canSend" :sending="agents.sending" :reviewers="reviewers" :submit-task="sendTask" />
       <AgentLogsPanel :log="activeLog" :project-name="agents.projectName" @clear="clearLog" />
     </div>
 

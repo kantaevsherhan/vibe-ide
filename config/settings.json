@@ -6,6 +6,8 @@
       "command": "claude",
       "args": [
         "-p",
+        "--permission-mode",
+        "acceptEdits",
         "{prompt}"
       ],
       "inputMode": "argument",
@@ -23,57 +25,6 @@
       ],
       "inputMode": "argument",
       "enabled": true
-    },
-    {
-      "id": "gemini",
-      "name": "Gemini",
-      "command": "gemini",
-      "args": [
-        "-p",
-        "{prompt}"
-      ],
-      "inputMode": "argument",
-      "enabled": true
-    },
-    {
-      "id": "custom",
-      "name": "Custom Agent",
-      "command": "npx",
-      "args": [
-        "my-agent"
-      ],
-      "inputMode": "stdin",
-      "enabled": false
-    },
-    {
-      "id": "opencode",
-      "name": "OpenCode",
-      "command": "opencode",
-      "args": [
-        "run",
-        "{prompt}"
-      ],
-      "inputMode": "argument",
-      "enabled": true
-    },
-    {
-      "id": "mimo",
-      "name": "MiMo Code",
-      "command": "mimo",
-      "args": [
-        "run",
-        "{prompt}"
-      ],
-      "inputMode": "argument",
-      "enabled": true
-    },
-    {
-      "id": "custom-agent-7",
-      "name": "Custom Agent",
-      "command": "",
-      "args": [],
-      "enabled": false,
-      "inputMode": "stdin"
     }
   ],
   "notifications": {

@@ -1,0 +1,11 @@
+.git
+.github
+.vibeide
+**/node_modules
+**/dist
+**/.cache
+**/.env*
+**/*.log
+workspace
+data
+config

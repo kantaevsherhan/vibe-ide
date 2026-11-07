@@ -8,15 +8,7 @@ import type { AgentListItem, AgentSession, AgentStatus } from '../../types/agent
 const agents = useAgentsStore();
 const editor = useEditorStore();
 
-const iconMap = {
-  claude: Bot,
-  chatgpt: Brain,
-  gemini: Sparkles,
-  codex: Command,
-  opencode: Command,
-  mimo: Sparkles,
-  custom: Settings
-};
+const iconMap = { claude: Bot, codex: Command, ollama: Brain, api: Sparkles };
 
 const statusClass: Record<AgentStatus, string> = {
   idle: 'bg-ide-muted',
@@ -40,45 +32,18 @@ const statusTextClass: Record<AgentStatus, string> = {
   not_installed: 'text-ide-muted'
 };
 
-const expectedAgents = [
-  { id: 'claude', name: 'Claude Code' },
-  { id: 'chatgpt', name: 'ChatGPT' },
-  { id: 'gemini', name: 'Gemini' },
-  { id: 'codex', name: 'Codex' },
-  { id: 'opencode', name: 'OpenCode' },
-  { id: 'mimo', name: 'MiMo Code' },
-  { id: 'custom', name: 'Custom CLI' }
-];
 
-const visibleAgents = computed(() => {
-  const byId = new Map(agents.agents.map((agent) => [agent.id, agent]));
-  const byName = new Map(agents.agents.map((agent) => [agent.name.toLowerCase(), agent]));
-  return expectedAgents.map((expected) => {
-    const match = byId.get(expected.id) ?? byName.get(expected.name.toLowerCase());
-    return match ?? placeholderAgent(expected.id, expected.name);
-  });
-});
+
+const visibleAgents = computed(() => agents.agents);
 
 onMounted(() => {
   void agents.refresh();
 });
 
-function placeholderAgent(id: string, name: string): AgentListItem {
-  return {
-    id,
-    name,
-    command: '',
-    args: [],
-    enabled: false,
-    installed: false,
-    status: 'not_installed'
-  };
-}
-
 function displayStatus(agent: AgentListItem, sessions: AgentSession[]): AgentStatus {
   if (!agent.enabled) return 'stopped';
   if (!agent.installed) return 'not_installed';
-  return sessions.find((item) => item.agentId === agent.id)?.status ?? agent.status ?? 'idle';
+  return sessions.slice().reverse().find((item) => item.agentId === agent.id)?.status ?? agent.status ?? 'idle';
 }
 
 function formatStatus(status: AgentStatus, agent: AgentListItem) {

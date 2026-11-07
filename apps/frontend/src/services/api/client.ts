@@ -1,5 +1,3 @@
-import { Capacitor, CapacitorHttp } from '@capacitor/core';
-
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -41,10 +39,6 @@ export function getApiBaseUrl() {
 
   if (enabled && url) {
     return url;
-  }
-
-  if (Capacitor.isNativePlatform() && !envApiBaseUrl) {
-    throw new ApiError('Backend URL is required for mobile app.', 0);
   }
 
   return envApiBaseUrl;
@@ -109,20 +103,11 @@ export function wsUrl(path: string) {
     console.debug('[ws]', {
       url: url.toString().replace(/authToken=[^&]+/, 'authToken=***'),
       backendUrl: getApiBaseUrl() || 'same-origin',
-      native: Capacitor.isNativePlatform(),
+
       authorizationToken: Boolean(token)
     });
   }
   return url.toString();
-}
-
-function parseBody(body: BodyInit | null | undefined) {
-  if (typeof body !== 'string') return body ?? undefined;
-  try {
-    return JSON.parse(body) as unknown;
-  } catch {
-    return body;
-  }
 }
 
 function normalizeHeaders(headers: HeadersInit | undefined) {
@@ -143,7 +128,6 @@ export async function apiRequest<T>(url: string, init?: RequestInit): Promise<T>
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...normalizeHeaders(init?.headers)
   };
-  const method = init?.method ?? 'GET';
   const requestUrl = apiUrl(url);
 
   if (import.meta.env.DEV) {
@@ -152,30 +136,14 @@ export async function apiRequest<T>(url: string, init?: RequestInit): Promise<T>
       credentials: 'include',
       authorizationHeader: Boolean(token),
       cookiePresent: document.cookie.includes('vibeide_session='),
-      native: Capacitor.isNativePlatform()
+
     });
-  }
-
-  if (Capacitor.isNativePlatform()) {
-    const response = await CapacitorHttp.request({
-      method,
-      url: requestUrl,
-      headers,
-      data: parseBody(init?.body)
-    });
-
-    if (response.status < 200 || response.status >= 300) {
-      const payload = typeof response.data === 'object' && response.data !== null ? (response.data as { error?: string; message?: string }) : null;
-      throw new ApiError(payload?.message ?? payload?.error ?? `Request failed: ${response.status}`, response.status);
-    }
-
-    return response.data as T;
   }
 
   const response = await fetch(requestUrl, {
-    headers,
     credentials: 'include',
-    ...init
+    ...init,
+    headers
   });
 
   if (!response.ok) {

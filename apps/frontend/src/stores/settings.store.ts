@@ -47,16 +47,6 @@ function readLocalSettings(): LocalSettings {
   }
 }
 
-function agentId(name: string) {
-  return name
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9_-]/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '') || `agent-${Date.now()}`;
-}
-
 export const useSettingsStore = defineStore('settings', () => {
   const local = reactive<LocalSettings>(readLocalSettings());
   const server = ref<ServerSettings | null>(null);
@@ -141,20 +131,6 @@ export const useSettingsStore = defineStore('settings', () => {
     updateAgent(index, { args: value.split(/\s+/).map((part) => part.trim()).filter(Boolean) });
   }
 
-  function addCustomAgent() {
-    if (!server.value) return;
-    const name = 'Custom Agent';
-    server.value.agents.push({
-      id: agentId(`${name}-${server.value.agents.length + 1}`),
-      name,
-      command: '',
-      args: [],
-      enabled: false,
-      inputMode: 'stdin'
-    });
-    scheduleSaveServerSettings();
-  }
-
   function updateTelegram(patch: Partial<ServerSettings['notifications']['telegram']>) {
     if (!server.value) return;
     server.value.notifications.telegram = { ...server.value.notifications.telegram, ...patch };
@@ -195,7 +171,6 @@ export const useSettingsStore = defineStore('settings', () => {
     scheduleSaveServerSettings,
     updateAgent,
     updateAgentArgs,
-    addCustomAgent,
     updateTelegram,
     testTelegram
   };

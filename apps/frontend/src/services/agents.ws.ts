@@ -12,7 +12,11 @@ export class AgentsSocket {
     this.messageHandler = onMessage;
     if (this.socket && this.socket.readyState !== WebSocket.CLOSED && this.projectName === projectName) return;
 
-    if (this.socket && this.socket.readyState !== WebSocket.CLOSED) this.socket.close();
+    if (this.socket) {
+      const previous = this.socket;
+      this.socket = undefined;
+      previous.close();
+    }
     this.projectName = projectName;
     this.open();
   }
@@ -20,15 +24,22 @@ export class AgentsSocket {
   private open() {
     if (!this.projectName) return;
     window.clearTimeout(this.reconnectTimer);
-    this.socket = new WebSocket(wsUrl(`/ws/agents?projectName=${encodeURIComponent(this.projectName)}`));
-    this.socket.addEventListener('open', () => {
+    const socket = new WebSocket(wsUrl(`/ws/agents?projectName=${encodeURIComponent(this.projectName)}`));
+    this.socket = socket;
+    socket.addEventListener('open', () => {
+      if (this.socket !== socket) return;
       this.reconnectAttempts = 0;
     });
-    this.socket.addEventListener('message', (event) => this.messageHandler?.(JSON.parse(event.data)));
-    this.socket.addEventListener('error', (event) => {
+    socket.addEventListener('message', (event) => {
+      if (this.socket !== socket) return;
+      try { this.messageHandler?.(JSON.parse(event.data)); }
+      catch { console.warn('[ws:agents] invalid message'); }
+    });
+    socket.addEventListener('error', (event) => {
       console.warn('[ws:agents] connection error', event);
     });
-    this.socket.addEventListener('close', (event) => {
+    socket.addEventListener('close', (event) => {
+      if (this.socket !== socket) return;
       console.warn('[ws:agents] closed', { code: event.code, reason: event.reason });
       this.socket = undefined;
       this.scheduleReconnect();

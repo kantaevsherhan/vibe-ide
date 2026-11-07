@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { Bell, Bot, Folder, MonitorCog, Palette, PencilLine, Settings } from '@lucide/vue';
 import BaseModal from '../ui/BaseModal.vue';
+import AutomationSettings from './AutomationSettings.vue';
 import { useSettingsStore } from '../../stores/settings.store';
 
 const props = defineProps<{
@@ -12,7 +13,7 @@ defineEmits<{
   close: [];
 }>();
 
-type SectionId = 'general' | 'appearance' | 'editor' | 'agents' | 'notifications' | 'workspace';
+type SectionId = 'general' | 'appearance' | 'editor' | 'agents' | 'automation' | 'notifications' | 'workspace';
 
 const settings = useSettingsStore();
 const active = ref<SectionId>('general');
@@ -22,6 +23,7 @@ const sections = [
   { id: 'appearance' as const, label: 'Appearance', icon: Palette },
   { id: 'editor' as const, label: 'Editor', icon: PencilLine },
   { id: 'agents' as const, label: 'Agents', icon: Bot },
+  { id: 'automation' as const, label: 'Connections & timers', icon: MonitorCog },
   { id: 'notifications' as const, label: 'Notifications', icon: Bell },
   { id: 'workspace' as const, label: 'Workspace', icon: Folder }
 ];
@@ -44,15 +46,16 @@ onMounted(() => {
   <BaseModal
     v-if="open"
     title="Settings"
-    panel-class="max-w-[1100px] h-[70vh] min-h-[620px]"
+    panel-class="max-w-[1100px] h-[min(90dvh,800px)] flex flex-col min-h-0"
     @close="$emit('close')"
   >
-    <div class="grid h-[calc(70vh-49px)] min-h-[570px] grid-cols-[230px_minmax(0,1fr)]">
-      <aside class="border-r border-ide-border bg-ide-panel/70 p-2">
+    <div class="grid min-h-0 flex-1 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] md:grid-cols-[230px_minmax(0,1fr)] md:grid-rows-1">
+      <aside class="flex gap-1 overflow-x-auto border-b border-ide-border bg-ide-panel/70 p-2 md:block md:border-b-0 md:border-r">
         <button
           v-for="section in sections"
           :key="section.id"
-          class="flex h-10 w-full items-center gap-3 px-3 text-left text-sm hover:bg-white/10"
+          class="flex min-h-11 shrink-0 items-center gap-3 px-3 text-left text-sm hover:bg-white/10 md:w-full"
+          :aria-current="active === section.id ? 'page' : undefined"
           :class="active === section.id ? 'bg-ide-accent/20 text-ide-text' : 'text-ide-muted'"
           @click="active = section.id"
         >
@@ -61,7 +64,7 @@ onMounted(() => {
         </button>
       </aside>
 
-      <section class="min-h-0 overflow-auto p-6 thin-scrollbar">
+      <section class="min-h-0 min-w-0 overflow-auto p-4 md:p-6 thin-scrollbar">
         <div class="mb-5 flex items-center justify-between gap-3 border-b border-ide-border pb-4">
           <div>
             <h3 class="text-lg font-semibold">{{ activeLabel }} Settings</h3>
@@ -69,13 +72,14 @@ onMounted(() => {
               Local settings stay on this device. Server settings are shared for this VibeIDE workspace.
             </p>
           </div>
-          <span class="text-xs text-ide-muted">{{ settings.saving ? 'Saving...' : 'Auto save' }}</span>
+          <span v-if="active !== 'automation'" class="text-xs text-ide-muted">{{ settings.saving ? 'Saving...' : 'Auto save' }}</span>
         </div>
 
         <p v-if="settings.error" class="mb-4 border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">{{ settings.error }}</p>
         <p v-if="settings.message" class="mb-4 border border-green-500/40 bg-green-500/10 p-3 text-sm text-green-200">{{ settings.message }}</p>
 
-        <div v-if="active === 'general'" class="space-y-4">
+        <AutomationSettings v-if="active === 'automation'" />
+        <div v-else-if="active === 'general'" class="space-y-4">
           <section class="border border-ide-border bg-ide-panel p-4">
             <h4 class="mb-2 font-medium">Settings Storage</h4>
             <p class="text-sm text-ide-muted">Appearance and editor font settings are local. Agents, notifications, and workspace settings are stored on the server.</p>
@@ -131,7 +135,6 @@ onMounted(() => {
           <section v-if="settings.server" class="space-y-3">
             <div class="flex items-center justify-between gap-3">
               <h4 class="font-medium">AI Agents</h4>
-              <button class="desktop-action-button h-8 px-3" @click="settings.addCustomAgent">Add Custom Agent</button>
             </div>
             <article v-for="(agent, index) in settings.server.agents" :key="agent.id" class="border border-ide-border bg-ide-panel p-4">
               <div class="mb-3 flex items-center justify-between gap-3">
@@ -183,7 +186,7 @@ onMounted(() => {
             <div class="grid gap-3 md:grid-cols-2">
               <label class="block">
                 <span class="mb-1 block text-xs uppercase tracking-wide text-ide-muted">Bot Token</span>
-                <input class="h-9 w-full border border-ide-border bg-ide-sidebar px-3 font-mono outline-none focus:border-ide-accent" :value="settings.server.notifications.telegram.botToken" @input="settings.updateTelegram({ botToken: ($event.target as HTMLInputElement).value })" />
+                <input type="password" autocomplete="new-password" class="h-9 w-full border border-ide-border bg-ide-sidebar px-3 font-mono outline-none focus:border-ide-accent" :value="settings.server.notifications.telegram.botToken" @input="settings.updateTelegram({ botToken: ($event.target as HTMLInputElement).value })" />
               </label>
               <label class="block">
                 <span class="mb-1 block text-xs uppercase tracking-wide text-ide-muted">Chat ID</span>

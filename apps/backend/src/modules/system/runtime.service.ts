@@ -18,6 +18,9 @@ export class RuntimeService {
   }
 
   async getRuntime(): Promise<RuntimeInfo> {
+    const detected = await this.detect();
+    if (detected?.runtime === 'docker') return detected;
+
     const config = await this.readConfig();
     if (config?.runtime && supported.has(config.runtime)) {
       return {
@@ -28,7 +31,6 @@ export class RuntimeService {
       };
     }
 
-    const detected = await this.detect();
     return detected ?? { runtime: 'manual', source: 'default' };
   }
 

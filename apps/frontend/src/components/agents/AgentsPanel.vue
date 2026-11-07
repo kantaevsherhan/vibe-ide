@@ -31,8 +31,7 @@ onMounted(async () => {
 
 async function sendTask() {
   if (!selectedAgentId.value) return;
-  await agents.sendTask(selectedAgentId.value, prompt.value);
-  prompt.value = '';
+  if (await agents.sendTask(selectedAgentId.value, prompt.value)) prompt.value = '';
 }
 
 function selectAgent(agentId: string) {

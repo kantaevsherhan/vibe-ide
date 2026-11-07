@@ -1,6 +1,9 @@
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import fs from 'node:fs/promises';
 import path from 'node:path';
+import { execa } from 'execa';
+import { childEnv } from '../security/child-env.js';
 import { UpdateLogs } from './update.logs.js';
 import type { RuntimeInfo, StartUpdateInput, StartUpdateResponse, UpdateJob, UpdateJobStatus, UpdateStatusResponse, UpdateStrategy } from './update.types.js';
 import type { RuntimeService } from './runtime.service.js';
@@ -40,6 +43,7 @@ export class UpdateService {
   }
 
   async start(input: StartUpdateInput = {}): Promise<StartUpdateResponse> {
+    const runtime = await this.runtime.getRuntime();
     if (this.currentUpdateJob && !this.isFinished(this.currentUpdateJob.status)) {
       throw Object.assign(new Error('Update is already running'), {
         statusCode: 409,
@@ -47,9 +51,12 @@ export class UpdateService {
       });
     }
 
+    if (runtime.runtime === 'docker') {
+      throw Object.assign(new Error('Update from the host: pull the source and run docker compose up -d --build.'), { statusCode: 409 });
+    }
+
     const jobId = randomUUID();
     const logPath = await this.logs.pathFor(jobId);
-    const runtime = await this.runtime.getRuntime();
     const job: UpdateJob = {
       jobId,
       status: 'checking',
@@ -102,21 +109,26 @@ export class UpdateService {
       job.currentVersion = current;
       job.latestVersion = latest;
 
-      if (current === latest) {
+      const pendingBuild = path.join(this.projectRoot, '.vibeide', 'system', 'pending-build');
+      const needsBuild = await fs.stat(pendingBuild).then(() => true, () => false);
+      if (current === latest && !needsBuild) {
         job.hasUpdates = false;
         await this.finish(job, 'finished', 'Already up to date.', undefined);
         return;
       }
 
       job.hasUpdates = true;
+      await fs.mkdir(path.dirname(pendingBuild), { recursive: true });
+      await fs.writeFile(pendingBuild, latest, 'utf8');
       await this.setStatus(job, 'downloading', 'Downloading updates...');
       await this.command(job, 'git pull --ff-only origin main', 'git', ['pull', '--ff-only', 'origin', 'main'], 'Git pull failed');
 
       await this.setStatus(job, 'installing', 'Installing dependencies...');
-      await this.command(job, 'npm install', 'npm', ['install'], 'npm install failed');
+      await this.command(job, 'npm ci', 'npm', ['ci'], 'npm ci failed');
 
       await this.setStatus(job, 'building', 'Building project...');
       await this.command(job, 'npm run build', 'npm', ['run', 'build'], 'Build failed');
+      await fs.rm(pendingBuild, { force: true });
 
       await this.handleRestart(job);
     } catch (error) {
@@ -178,12 +190,6 @@ export class UpdateService {
       return;
     }
 
-    if (runtime.runtime === 'docker') {
-      job.restartStatus = 'Please restart the container.';
-      await this.finish(job, 'finished', 'Update completed successfully. Please restart the container.', undefined);
-      return;
-    }
-
     job.restartStatus = 'Please restart VibeIDE manually.';
     await this.finish(job, 'finished', 'Update completed successfully. Please restart VibeIDE manually.', undefined);
   }
@@ -230,29 +236,20 @@ export class UpdateService {
     return result;
   }
 
-  private runCommand(command: string, args: string[], job: UpdateJob | null): Promise<CommandResult> {
-    return new Promise((resolve, reject) => {
-      const child = spawn(command, args, {
-        cwd: this.projectRoot,
-        env: process.env,
-        shell: process.platform === 'win32',
-        windowsHide: true
-      });
-      let stdout = '';
-      let stderr = '';
-      child.stdout.on('data', (chunk: Buffer) => {
-        const text = chunk.toString();
-        stdout += text;
-        if (job) void this.write(job, text);
-      });
-      child.stderr.on('data', (chunk: Buffer) => {
-        const text = chunk.toString();
-        stderr += text;
-        if (job) void this.write(job, text);
-      });
-      child.on('error', reject);
-      child.on('close', (code) => resolve({ stdout, stderr, code }));
+  private async runCommand(command: string, args: string[], job: UpdateJob | null): Promise<CommandResult> {
+    const child = execa(command, args, {
+      cwd: this.projectRoot,
+      env: childEnv(),
+      extendEnv: false,
+      reject: false,
+      windowsHide: true
     });
+    if (job) {
+      child.stdout?.on('data', (chunk: Buffer) => { void this.write(job, chunk.toString()); });
+      child.stderr?.on('data', (chunk: Buffer) => { void this.write(job, chunk.toString()); });
+    }
+    const result = await child;
+    return { stdout: result.stdout, stderr: result.stderr, code: result.exitCode ?? null };
   }
 
   private spawnDetached(command: string, args: string[]) {

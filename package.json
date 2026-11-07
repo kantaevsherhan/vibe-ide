@@ -1,25 +1,18 @@
 {
   "name": "vibe-ide",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A small browser IDE for vibe-coding in a local workspace.",
   "workspaces": [
     "apps/frontend",
     "apps/backend"
   ],
   "scripts": {
+    "test": "tsx --test tests/*.test.mts",
     "dev": "concurrently -k -n backend,frontend \"npm run dev --workspace apps/backend\" \"npm run dev --workspace apps/frontend\"",
     "build": "npm run build --workspace apps/frontend && npm run build --workspace apps/backend",
     "start": "npm run start --workspace apps/backend",
-    "typecheck": "npm run typecheck --workspaces",
-    "cap:sync": "npm run cap:sync --workspace apps/frontend",
-    "android": "npm run android --workspace apps/frontend",
-    "android:open": "npm run android:open --workspace apps/frontend",
-    "ios": "npm run ios --workspace apps/frontend",
-    "ios:open": "npm run ios:open --workspace apps/frontend",
-    "android:debug": "npm run android:debug --workspace apps/frontend",
-    "android:release": "npm run android:release --workspace apps/frontend",
-    "android:debug:win": "npm run android:debug:win --workspace apps/frontend"
+    "typecheck": "npm run typecheck --workspaces"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

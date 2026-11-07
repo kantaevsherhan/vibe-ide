@@ -350,12 +350,6 @@ select:focus-visible {
   color: #d8efff;
 }
 
-.agent-icon-button.is-recording {
-  border-color: rgba(248, 113, 113, 0.85);
-  background: rgba(248, 113, 113, 0.18);
-  color: #fca5a5;
-}
-
 .agent-chat-list {
   max-height: min(46vh, 360px);
   overflow: auto;
@@ -449,6 +443,8 @@ select:focus-visible {
 .agent-composer {
   display: grid;
   gap: 8px;
+  max-height: min(52dvh, 28rem);
+  overflow-y: auto;
   border-top: 1px solid var(--border);
   background: #252526;
   padding: 10px;

@@ -6,7 +6,7 @@ export class WorkspaceService {
   readonly root: string;
 
   constructor(config: VibeIdeConfig) {
-    this.root = path.resolve(process.env.WORKSPACE_DIR ?? config.workspace.path);
+    this.root = path.resolve(config.workspace.path);
   }
 
   async ensureReady() {

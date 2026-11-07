@@ -2,6 +2,22 @@ export type AgentStatus = 'idle' | 'running' | 'thinking' | 'waiting' | 'error' 
 
 export type TaskStatus = 'queued' | 'running' | 'waiting' | 'done' | 'error' | 'stopped' | 'cancelled';
 
+export interface RunOptions {
+  model?: string;
+  effort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+}
+
+export interface TaskOptions {
+  run?: RunOptions;
+  reviewer?: RunOptions & { agentId: 'codex' | 'claude' };
+}
+
+export interface CreateAgentTaskInput extends TaskOptions {
+  projectName: string;
+  agentId: string;
+  prompt: string;
+}
+
 export interface AgentConfig {
   id: string;
   name: string;
@@ -10,6 +26,7 @@ export interface AgentConfig {
   enabled: boolean;
   inputMode?: 'stdin' | 'argument' | 'file';
   timeoutMs?: number;
+  transport?: 'api';
 }
 
 export interface AgentSession {
@@ -23,7 +40,7 @@ export interface AgentSession {
   lastOutput?: string;
 }
 
-export interface AgentTask {
+export interface AgentTask extends TaskOptions {
   id: string;
   projectName: string;
   agentId: string;
@@ -34,10 +51,31 @@ export interface AgentTask {
   startedAt?: string;
   finishedAt?: string;
   error?: string;
+  reviewOf?: string;
+  reviewTaskId?: string;
+  source?: { kind: 'chronos' | 'warmup'; key: string; title: string };
+}
+
+export interface WarmupConfig {
+  projectName: string;
+  time: string;
+  timeZone: string;
+  agents: ('codex' | 'claude')[];
+}
+
+export interface ChronosConfig extends TaskOptions {
+  enabled: boolean;
+  url: string;
+  token: string;
+  projectName: string;
+  agentId: 'codex' | 'claude';
 }
 
 export interface AgentsConfigFile {
+  models: Record<'api' | 'ollama', { model: string; baseUrl: string; apiKey: string; keyConfigured?: boolean }>;
   agents: AgentConfig[];
+  warmup: WarmupConfig;
+  chronos: ChronosConfig;
   notifications: {
     telegram: {
       enabled: boolean;

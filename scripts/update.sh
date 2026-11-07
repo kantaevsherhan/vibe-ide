@@ -18,20 +18,26 @@ git fetch origin
 LOCAL=$(git rev-parse HEAD)
 REMOTE=$(git rev-parse origin/main)
 
-if [ "$LOCAL" = "$REMOTE" ]; then
+PENDING_BUILD=.vibeide/system/pending-build
+
+if [ "$LOCAL" = "$REMOTE" ] && [ ! -f "$PENDING_BUILD" ]; then
   echo "Already up to date."
   echo "Finished at $(date -Is)"
   exit 0
 fi
 
+mkdir -p .vibeide/system
+printf "%s\n" "$REMOTE" > "$PENDING_BUILD"
+
 echo "Pulling latest changes..."
 git pull --ff-only origin main
 
 echo "Installing dependencies..."
-npm install
+npm ci
 
 echo "Building project..."
 npm run build
+rm -f "$PENDING_BUILD"
 
 echo "Update completed successfully."
 echo "Finished at $(date -Is)"

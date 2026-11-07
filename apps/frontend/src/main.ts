@@ -1,13 +1,10 @@
 import { createPinia } from 'pinia';
 import { createApp } from 'vue';
-import { createRouter, createWebHashHistory, createWebHistory } from 'vue-router';
-import { Capacitor } from '@capacitor/core';
+import { createRouter, createWebHistory } from 'vue-router';
 import App from './App.vue';
 import IdeLayout from './layouts/IdeLayout.vue';
 import LoginPage from './pages/LoginPage.vue';
 import ProjectsPage from './pages/ProjectsPage.vue';
-import { initCapacitor } from './capacitor/initCapacitor';
-import { setupOrientation } from './capacitor/setupOrientation';
 import { useAuthStore } from './stores/auth.store';
 import { useSettingsStore } from './stores/settings.store';
 import './app/styles.css';
@@ -15,7 +12,7 @@ import './app/styles.css';
 const pinia = createPinia();
 useSettingsStore(pinia);
 const router = createRouter({
-  history: Capacitor.isNativePlatform() ? createWebHashHistory() : createWebHistory(),
+  history: createWebHistory(),
   routes: [
     { path: '/', redirect: '/projects' },
     { path: '/login', component: LoginPage },
@@ -35,10 +32,8 @@ router.beforeEach(async (to) => {
 });
 
 createApp(App).use(pinia).use(router).mount('#app');
-void initCapacitor();
-void setupOrientation();
 
-if (!Capacitor.isNativePlatform() && 'serviceWorker' in navigator && import.meta.env.PROD) {
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
     void navigator.serviceWorker.register('/sw.js');
   });

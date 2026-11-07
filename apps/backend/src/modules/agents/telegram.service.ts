@@ -9,6 +9,7 @@ export class TelegramService {
 
     const response = await fetch(`https://api.telegram.org/bot${telegram.botToken}/sendMessage`, {
       method: 'POST',
+      signal: AbortSignal.timeout(10_000),
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         chat_id: telegram.chatId,

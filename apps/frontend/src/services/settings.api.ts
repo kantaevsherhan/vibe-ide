@@ -1,5 +1,5 @@
 import { apiRequest } from './api';
-import type { AgentConfig } from '../types/agents';
+import type { AgentConfig, TaskOptions } from '../types/agents';
 
 export type ThemeName = 'dark' | 'light';
 
@@ -10,6 +10,9 @@ export type LocalSettings = {
 };
 
 export type ServerSettings = {
+  models: Record<'api' | 'ollama', { model: string; baseUrl: string; apiKey: string; keyConfigured?: boolean }>;
+  warmup: { projectName: string; time: string; timeZone: string; agents: ('codex' | 'claude')[] };
+  chronos: TaskOptions & { enabled: boolean; url: string; token: string; tokenConfigured?: boolean; projectName: string; agentId: 'codex' | 'claude' };
   agents: AgentConfig[];
   notifications: {
     telegram: {
@@ -26,6 +29,9 @@ export type ServerSettings = {
 };
 
 export type UpdateServerSettingsInput = Partial<{
+  models: ServerSettings['models'];
+  warmup: ServerSettings['warmup'];
+  chronos: ServerSettings['chronos'];
   agents: AgentConfig[];
   notifications: Partial<{
     telegram: Partial<ServerSettings['notifications']['telegram']>;

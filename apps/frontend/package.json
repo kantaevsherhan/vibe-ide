@@ -1,36 +1,16 @@
 {
   "name": "@vibe-ide/frontend",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vue-tsc --noEmit && vite build",
-    "build:capacitor": "vue-tsc --noEmit && vite build --mode capacitor",
     "preview": "vite preview --host 0.0.0.0",
-    "typecheck": "vue-tsc --noEmit",
-    "cap:sync": "npm run build:capacitor && npx cap sync",
-    "android": "npm run build:capacitor && npx cap sync android && npx cap open android",
-    "android:open": "npm run build:capacitor && npx cap sync android && npx cap open android",
-    "ios": "npm run build:capacitor && npx cap sync ios && npx cap open ios",
-    "ios:open": "npm run build:capacitor && npx cap sync ios && npx cap open ios",
-    "android:debug": "npm run build:capacitor && npx cap sync android && cd android && ./gradlew assembleDebug",
-    "android:release": "npm run build:capacitor && npx cap sync android && cd android && ./gradlew assembleRelease",
-    "android:debug:win": "npm run build:capacitor && npx cap sync android && cd android && gradlew.bat assembleDebug"
+    "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
-    "@capacitor/android": "^8.4.1",
-    "@capacitor/app": "^8.1.0",
-    "@capacitor/cli": "^8.4.1",
-    "@capacitor/core": "^8.4.1",
-    "@capacitor/device": "^8.0.2",
-    "@capacitor/ios": "^8.4.1",
-    "@capacitor/preferences": "^8.0.1",
-    "@capacitor/screen-orientation": "^8.0.1",
-    "@capacitor/splash-screen": "^8.0.1",
-    "@capacitor/status-bar": "^8.0.2",
     "@lucide/vue": "^1.22.0",
-    "@monaco-editor/loader": "^1.5.0",
     "@vitejs/plugin-vue": "^5.2.1",
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/xterm": "^5.5.0",
@@ -44,7 +24,6 @@
     "vue-router": "^4.5.0"
   },
   "devDependencies": {
-    "@capacitor/assets": "^3.0.5",
     "@types/markdown-it": "^14.1.2",
     "@types/markdown-it-emoji": "^3.0.1",
     "autoprefixer": "^10.4.20",
@@ -52,6 +31,6 @@
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.3",
     "vite": "^6.0.7",
-    "vue-tsc": "^2.2.0"
+    "vue-tsc": "^3.3.14"
   }
 }

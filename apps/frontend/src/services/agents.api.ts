@@ -1,5 +1,5 @@
 import { apiRequest } from './api';
-import type { AgentListItem, AgentSession, AgentTask } from '../types/agents';
+import type { AgentListItem, AgentSession, AgentTask, TaskOptions } from '../types/agents';
 
 export const agentsApi = {
   list() {
@@ -13,10 +13,10 @@ export const agentsApi = {
   tasks(projectName: string) {
     return apiRequest<{ tasks: AgentTask[] }>(`/api/agents/tasks?projectName=${encodeURIComponent(projectName)}`);
   },
-  createTask(projectName: string, agentId: string, prompt: string) {
+  createTask(projectName: string, agentId: string, prompt: string, options?: TaskOptions) {
     return apiRequest<{ task: AgentTask }>('/api/agents/tasks', {
       method: 'POST',
-      body: JSON.stringify({ projectName, agentId, prompt })
+      body: JSON.stringify({ projectName, agentId, prompt, ...options })
     });
   },
   cancel(taskId: string) {

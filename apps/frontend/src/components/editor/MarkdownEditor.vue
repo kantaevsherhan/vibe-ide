@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import loader from '@monaco-editor/loader';
 import type * as Monaco from 'monaco-editor';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github-dark.css';
@@ -52,7 +51,7 @@ function scheduleSave() {
 
 async function mountEditor() {
   if (!container.value) return;
-  monacoInstance = await loader.init();
+  monacoInstance = (await import('../../services/monaco')).monaco;
   monacoInstance.editor.defineTheme('vibe-dark', {
     base: 'vs-dark',
     inherit: true,

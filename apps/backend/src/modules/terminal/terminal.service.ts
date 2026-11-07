@@ -5,6 +5,7 @@ import type { VibeIdeConfig } from '../../config/default-config.js';
 import type { TerminalMessage, TerminalOutputMessage, TerminalSnapshot } from '../../types/terminal.js';
 import type { ProjectsService } from '../projects/projects.service.js';
 import { ensureTerminalAllowed } from '../security/permissions.js';
+import { childEnv } from '../security/child-env.js';
 
 type SendMessage = (message: TerminalOutputMessage) => void;
 type TerminalSessionState = {
@@ -122,7 +123,7 @@ export class TerminalService {
       cols: 100,
       rows: 28,
       cwd: projectPath,
-      env: process.env
+      env: childEnv()
     });
 
     const session: TerminalSessionState = {

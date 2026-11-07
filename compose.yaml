@@ -1,0 +1,32 @@
+services:
+  vibe-ide:
+    build:
+      context: .
+      args:
+        VIBEIDE_CLI_PACKAGES: "${VIBEIDE_CLI_PACKAGES:-}"
+    init: true
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${VIBEIDE_PORT:-8080}:8080"
+    environment:
+      VIBEIDE_PASSWORD: "${VIBEIDE_PASSWORD:?Set VIBEIDE_PASSWORD in .env}"
+      VIBEIDE_SESSION_SECRET: "${VIBEIDE_SESSION_SECRET:?Set VIBEIDE_SESSION_SECRET in .env}"
+      VIBEIDE_API_BASE_URL: "${VIBEIDE_API_BASE_URL:-}"
+      VIBEIDE_API_MODEL: "${VIBEIDE_API_MODEL:-}"
+      VIBEIDE_API_KEY: "${VIBEIDE_API_KEY:-}"
+      VIBEIDE_OLLAMA_BASE_URL: "${VIBEIDE_OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}"
+      VIBEIDE_OLLAMA_MODEL: "${VIBEIDE_OLLAMA_MODEL:-}"
+      VIBEIDE_CHRONOS_URL: "${VIBEIDE_CHRONOS_URL:-}"
+      VIBEIDE_CHRONOS_TOKEN: "${VIBEIDE_CHRONOS_TOKEN:-}"
+      VIBEIDE_CHRONOS_PROJECT: "${VIBEIDE_CHRONOS_PROJECT:-}"
+      VIBEIDE_CHRONOS_AGENT: "${VIBEIDE_CHRONOS_AGENT:-codex}"
+      VIBEIDE_CHRONOS_INTERVAL_MS: "${VIBEIDE_CHRONOS_INTERVAL_MS:-60000}"
+    volumes:
+      - "${VIBEIDE_WORKSPACE:-workspace}:/workspace"
+      - data:/data
+      - cli-home:/home/node
+
+volumes:
+  workspace:
+  data:
+  cli-home:

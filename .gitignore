@@ -1,6 +1,5 @@
 node_modules/
 dist/
-dist-capacitor/
 .agents/
 .codex/
 .env
@@ -8,3 +7,5 @@ dist-capacitor/
 .DS_Store
 *.log
 /workspace/
+/.vibeide/
+/.cache/

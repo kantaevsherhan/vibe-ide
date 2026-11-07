@@ -14,7 +14,11 @@ The app combines a Vue/Monaco frontend with a Fastify backend, project-scoped fi
 - `.vibeignore` plus default ignored folders, with `Open Anyway` for manual inspection.
 - WebSocket terminals scoped to the current project.
 - Git status/diff scoped only to the project root, with optional `Initialize repository`.
-- CLI AI agents through `node-pty`: Claude Code, Codex, Gemini, OpenCode, MiMo Code, or a custom command from `config/settings.json`.
+- Codex CLI and Claude Code CLI with a persistent, sequential project task queue.
+- Ollama and OpenAI-compatible model APIs configured through Settings.
+- Chronos MCP task import, status sync and Telegram progress notifications.
+- Daily CLI checks with a selected time, timezone and agent.
+- Local Monaco assets and Docker Compose with persistent storage.
 - Persistent file-backed task queue and logs under `.vibeide/agents`.
 - Telegram notifications for agent task events.
 - Compact Project Runtime Dashboard and Workspace Health widgets.
@@ -103,17 +107,6 @@ http://127.0.0.1:8080
 
 Do not open `apps/frontend/dist/index.html` directly as a file. The built frontend must be served by the backend so API routes, auth cookies, and WebSocket terminals work.
 
-## Voice Dictation
-
-VibeIDE supports local speech-to-text for prompts through a Node.js Whisper pipeline. Audio is recorded in the browser, sent to the backend, transcribed locally on the server, and returned as text. No Python runtime and no OpenAI Whisper API key are required.
-
-Current voice input surfaces:
-
-- `Create Project` -> `From prompt` -> `Dictate prompt`.
-- IDE AI Agents chat composer -> microphone button.
-
-The backend uses the `tiny` Whisper model by default. Model files are downloaded automatically on first use and cached under `.cache/models`. Set `VIBEIDE_MODEL_CACHE` before starting the backend if you want to store model files somewhere else.
-
 ## Icons
 
 The source logo is stored at:
@@ -145,69 +138,9 @@ apps/frontend/public/icons/macos/
 
 To replace the project logo, replace `apps/frontend/public/logo.png`, regenerate the icon sizes from it, and keep `manifest.webmanifest` pointed at the Android/PWA icon files.
 
-## Mobile / Capacitor
+## Mobile Browser
 
-The Vue frontend can be packaged as native Android and iOS apps with Capacitor. The backend architecture is unchanged; native apps still connect to the same VibeIDE backend.
-
-In the browser, VibeIDE uses the normal `fetch` API. In Android and iOS builds, API requests use Capacitor native HTTP for more stable mobile networking.
-
-Native apps cannot use relative `/api` routes unless a backend URL is configured. Use one of these options:
-
-- On the Login page, enable `Use custom backend` and enter your backend URL.
-- Or build with `VITE_API_BASE_URL`:
-
-```bash
-VITE_API_BASE_URL=https://your-vibeide-server.example.com npm run cap:sync
-```
-
-Without a backend URL, the mobile app shows `Backend URL is required for mobile app.` The web build keeps using same-origin `/api` and `/ws` routes.
-
-The native app always locks to landscape orientation on Android, iPhone, and iPad.
-
-Sync native projects after frontend changes:
-
-```bash
-npm run cap:sync
-```
-
-Native builds use `apps/frontend/dist-capacitor` so the regular web build in `apps/frontend/dist` keeps browser-safe absolute asset URLs.
-
-Open Android Studio:
-
-```bash
-npm run android:open
-```
-
-Build Android debug APK:
-
-```bash
-npm run android:debug
-```
-
-On Windows:
-
-```bash
-npm run android:debug:win
-```
-
-The debug APK is generated at:
-
-```txt
-apps/frontend/android/app/build/outputs/apk/debug/app-debug.apk
-```
-
-Open iOS in Xcode on macOS:
-
-```bash
-npm run ios:open
-```
-
-Capacitor resources are stored in:
-
-```txt
-apps/frontend/resources/icon.png
-apps/frontend/resources/splash.png
-```
+Open VibeIDE in a mobile browser or install it from the browser as a PWA.
 
 ## Manual Update
 
@@ -258,7 +191,7 @@ Restart behavior:
 - `manual`: update finishes and asks you to restart VibeIDE manually.
 - `pm2`: VibeIDE schedules `pm2 restart <processName>`.
 - `systemd`: VibeIDE schedules `systemctl restart <service>`.
-- `docker`: VibeIDE never runs Docker commands and asks you to restart the container.
+- `docker` uses host-side image rebuilding through Docker Compose.
 
 Local generated files such as `.vibeide/`, `logs/`, `data/`, `storage/`, `config/settings.json`, and `config/runtime.json` do not block updates. Local source code changes still block the safe default update mode.
 
@@ -277,16 +210,40 @@ npm run start
 
 ## Docker
 
-```bash
-docker build -t vibe-ide .
-docker run -p 8080:8080 -v ./workspace:/workspace vibe-ide
-```
-
-For an absolute host workspace:
+Copy `.env.example` to `.env`, set a unique `VIBEIDE_PASSWORD` and a `VIBEIDE_SESSION_SECRET` containing at least 32 characters, then start the service.
 
 ```bash
-docker run -p 8080:8080 -v /home/projects:/workspace vibe-ide
+docker compose up -d --build
+docker compose ps
 ```
+
+Open `http://127.0.0.1:8080` and sign in as `admin` with the configured password. Compose binds to localhost. To use a host project directory, set `VIBEIDE_WORKSPACE` to an absolute directory path in `.env`. The node container user needs write access to that directory.
+
+Named volumes persist the workspace, configuration and CLI home. Healthchecks monitor the backend, and the service restarts after crashes or Docker startup. Run one backend per workspace.
+
+To include CLI tools, set `VIBEIDE_CLI_PACKAGES` to space-separated npm package specifications such as `@openai/codex @anthropic-ai/claude-code` before building. Pin package versions for repeatable deployments. Authenticate the installed CLIs inside the container.
+
+Use the Codex Compose override to allow its nested sandbox when running Codex in Docker.
+
+```bash
+docker compose -f compose.yaml -f compose.codex.yaml up -d --build
+```
+
+```bash
+docker compose exec vibe-ide codex login --device-auth
+docker compose exec vibe-ide claude auth login
+```
+
+API-only and Ollama configurations work with the default image. Linux hosts can set the Ollama URL to a reachable host address.
+
+Update containers from the host checkout.
+
+```bash
+git pull --ff-only
+docker compose up -d --build
+```
+
+The in-app updater returns container rebuild instructions. Configuration files and the workspace are kept in persistent volumes.
 
 ## Security
 
@@ -454,11 +411,11 @@ config/settings.json
 They are shared for every device that opens the same VibeIDE server:
 
 - AI agent command, arguments, and enabled state.
-- Custom agents.
+- Model API connections, Chronos and daily CLI checks.
 - Telegram notification settings.
 - Workspace information and future workspace options.
 
-Open `Settings` from the Projects page or from the IDE activity bar. Changes are saved automatically.
+Open `Settings` from the Projects page or IDE activity bar. Agent and notification changes use auto save. Connections & timers has an explicit Save button.
 
 Settings API:
 
@@ -470,138 +427,33 @@ POST /api/settings/test-telegram
 
 ## AI Agents
 
-VibeIDE runs CLI-based AI agents inside the current project. Agents are configured in:
+The supported connections are Codex CLI, Claude Code CLI, Ollama and an OpenAI-compatible API. CLI processes run in the current project and stream stdout/stderr to the task log. Install and authenticate CLI tools in the backend environment.
 
-```txt
-config/settings.json
-```
+Configure CLI paths, arguments and timeouts in Settings → Agents. Absolute executable paths are supported. The default Codex command is `codex exec --sandbox workspace-write`. Claude uses `claude -p`. Authentication or permission failures are visible in task logs.
 
-Example:
+Configure API model names, base URLs and keys in Settings → Connections & timers. API and Ollama connections return text suggestions in the task log. CLI agents handle project edits. API and Chronos keys are stored server-side and masked in settings responses. An empty key field retains the existing key for the same endpoint. Clearing the model disables that connection.
 
-```json
-{
-  "agents": [
-    { "id": "claude", "name": "Claude Code", "command": "claude", "args": ["-p", "{prompt}"], "inputMode": "argument", "enabled": true },
-    { "id": "codex", "name": "Codex", "command": "codex", "args": ["exec", "--sandbox", "workspace-write", "{prompt}"], "inputMode": "argument", "enabled": true },
-    { "id": "gemini", "name": "Gemini", "command": "gemini", "args": ["-p", "{prompt}"], "inputMode": "argument", "enabled": true },
-    { "id": "opencode", "name": "OpenCode", "command": "opencode", "args": ["run", "{prompt}"], "inputMode": "argument", "enabled": true },
-    { "id": "mimo", "name": "MiMo Code", "command": "mimo", "args": ["run", "{prompt}"], "inputMode": "argument", "enabled": true },
-    { "id": "custom", "name": "Custom Agent", "command": "npx", "args": ["my-agent"], "inputMode": "stdin", "enabled": false }
-  ],
-  "notifications": {
-    "telegram": {
-      "enabled": false,
-      "botToken": "",
-      "chatId": ""
-    }
-  }
-}
-```
+The API base URL must include the provider API prefix, for example `https://api.openai.com/v1` or `http://127.0.0.1:11434/v1`. From Docker Desktop, use `http://host.docker.internal:11434/v1` to reach Ollama running on the host.
 
-If an agent command is not installed on the server, the UI shows `Not installed` and VibeIDE keeps running.
+The `VIBEIDE_API_MODEL`, `VIBEIDE_API_BASE_URL`, `VIBEIDE_API_KEY`, `VIBEIDE_OLLAMA_MODEL`, `VIBEIDE_OLLAMA_BASE_URL` and `VIBEIDE_OLLAMA_KEY` environment variables provide initial defaults. Saved UI settings take precedence.
 
-Real CLI agents usually need a non-interactive mode. VibeIDE supports three input modes:
+## Chronos
 
-```txt
-stdin     write the final prompt to stdin after process start
-argument  pass the final prompt as a command argument
-file      write the prompt to .vibeide/agents/prompts/<task-id>.md and pass the file path
-```
+In Chronos, create a write-scoped agent token. In VibeIDE, open Settings → Connections & timers, enter the MCP URL and token, select a workspace project and CLI agent, enable background checks, and save.
 
-Use `{prompt}` or `{promptFile}` placeholders in `args`:
+The deployed Chronos MCP endpoint is `https://chronos-beta-lyart.vercel.app/api/mcp`. Tasks are eligible when their title contains `[vibe]`, their Chronos project exactly matches the selected project folder, and they are still open. For example, a task named `[vibe] Fix login validation` with project `my-app` runs in `workspace/my-app`.
 
-```json
-{
-  "agents": [
-    {
-      "id": "claude",
-      "name": "Claude Code",
-      "command": "claude",
-      "args": ["-p", "{prompt}"],
-      "inputMode": "argument",
-      "enabled": true
-    },
-    {
-      "id": "codex",
-      "name": "Codex",
-      "command": "codex",
-      "args": ["exec", "--sandbox", "workspace-write", "{prompt}"],
-      "inputMode": "argument",
-      "enabled": true
-    },
-    {
-      "id": "custom",
-      "name": "Custom Agent",
-      "command": "node",
-      "args": ["agent.js", "{promptFile}"],
-      "inputMode": "file",
-      "enabled": false
-    }
-  ]
-}
-```
+VibeIDE checks every minute and imports each task ID once. The source link is persisted in the project queue across restarts. Task status is written to the Chronos `data.vibeide` field with an updatedAt version check. A successful process produces the `review` state. Review the diff and tests before completing the task in Chronos. Use the existing queue Retry action for failed work.
 
-The Agents panel shows the resolved CLI path and startup errors, which helps catch PATH problems when the backend runs from an installer or service.
+Enable and test Telegram under Settings → Notifications. Messages include task start, finish, failure and the original Chronos title. Token expiry and connection errors are shown under Connections & timers. Use Check saved automation after saving connection changes.
 
-Codex is configured with `--sandbox workspace-write`, so it can read and write inside the opened project while staying constrained to that workspace. VibeIDE strips the older unsupported `--ask-for-approval` argument when launching Codex through the adapter.
+## Daily CLI Schedule
 
-The frontend cannot pass arbitrary commands or working directories. It can only send prompts to agents declared in `settings.json`.
+Under Settings → Connections & timers choose a project, local time, IANA timezone and Codex CLI and/or Claude Code CLI. Save the settings. The initial time is 04:30 in Asia/Qyzylorda, and both agents start unchecked. Each selected agent receives one short request per local day. Clear both checkboxes and save to disable it.
 
-### OpenCode
+VibeIDE must be running at the scheduled minute. Missed times are skipped, and an existing project queue can delay the request. The request uses read-only Codex mode or disabled Claude tools. Provider rules determine usage windows and quota restoration.
 
-Install OpenCode on the server where VibeIDE runs:
-
-```bash
-npm install -g opencode-ai
-opencode auth login
-```
-
-VibeIDE's built-in OpenCode agent runs:
-
-```bash
-opencode run "<prompt>"
-```
-
-As a custom agent:
-
-```json
-{
-  "id": "custom-opencode",
-  "name": "Custom OpenCode",
-  "command": "opencode",
-  "args": ["run", "{prompt}"],
-  "inputMode": "argument",
-  "enabled": true
-}
-```
-
-### MiMo Code
-
-Install MiMo Code on the server where VibeIDE runs:
-
-```bash
-npm install -g @mimo-ai/cli
-mimo auth login
-```
-
-VibeIDE's built-in MiMo Code agent runs:
-
-```bash
-mimo run "<prompt>"
-```
-
-As a custom agent:
-
-```json
-{
-  "id": "custom-mimo",
-  "name": "Custom MiMo Code",
-  "command": "mimo",
-  "args": ["run", "{prompt}"],
-  "inputMode": "argument",
-  "enabled": true
-}
-```
+Official protocol documentation is available for [Chat Completions](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create), [Ollama compatibility](https://docs.ollama.com/api/openai-compatibility), [Claude CLI flags](https://code.claude.com/docs/en/cli-reference) and [MCP transport](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports).
 
 ## Task Queue
 

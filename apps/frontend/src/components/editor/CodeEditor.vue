@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import loader from '@monaco-editor/loader';
 import type * as Monaco from 'monaco-editor';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { resizeEventName } from '../../composables/useResizable';
@@ -42,7 +41,7 @@ function layoutEditor() {
 async function mountEditor() {
   if (!container.value) return;
 
-  monacoInstance = await loader.init();
+  monacoInstance = (await import('../../services/monaco')).monaco;
   monacoInstance.editor.defineTheme('vibe-dark', {
     base: 'vs-dark',
     inherit: true,

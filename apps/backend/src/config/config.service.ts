@@ -23,6 +23,18 @@ export class ConfigService {
       console.warn(`[security] Created ${this.path}. Change the default password and sessionSecret before exposing VibeIDE.`);
     }
 
+    const { VIBEIDE_PASSWORD, VIBEIDE_SESSION_SECRET, WORKSPACE_DIR } = process.env;
+    if (VIBEIDE_PASSWORD) this.config.auth.password = VIBEIDE_PASSWORD;
+    if (VIBEIDE_SESSION_SECRET) this.config.auth.sessionSecret = VIBEIDE_SESSION_SECRET;
+    this.config.workspace.path = path.resolve(this.projectRoot, WORKSPACE_DIR || this.config.workspace.path);
+
+    if (process.env.DOCKER_CONTAINER === '1') {
+      if (!this.config.auth.enabled || this.config.auth.password === 'change-me' ||
+          this.config.auth.sessionSecret === 'change-this-secret' || this.config.auth.sessionSecret.length < 32) {
+        throw new Error('Docker requires authentication, a custom VIBEIDE_PASSWORD and a VIBEIDE_SESSION_SECRET of at least 32 characters.');
+      }
+    }
+
     if (this.config.auth.password === 'change-me' || this.config.auth.sessionSecret === 'change-this-secret') {
       console.warn('[security] Default credentials are active. Change auth.password and auth.sessionSecret in config/vibeide.config.json.');
     }

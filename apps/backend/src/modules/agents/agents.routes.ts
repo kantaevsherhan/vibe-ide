@@ -2,12 +2,13 @@ import type { FastifyInstance } from 'fastify';
 import type { AuthService } from '../auth/auth.service.js';
 import type { AgentsManager } from './agents.manager.js';
 import type { AgentsService } from './agents.service.js';
+import type { CreateAgentTaskInput } from './agents.types.js';
 
 export async function registerAgentsRoutes(app: FastifyInstance, agents: AgentsService, manager: AgentsManager, auth: AuthService) {
   app.get('/api/agents', async () => agents.listAgents());
   app.get<{ Querystring: { projectName: string } }>('/api/agents/status', async (request) => agents.status(request.query.projectName));
   app.get<{ Querystring: { projectName: string } }>('/api/agents/tasks', async (request) => agents.tasks(request.query.projectName));
-  app.post<{ Body: { projectName: string; agentId: string; prompt: string } }>('/api/agents/tasks', async (request, reply) => {
+  app.post<{ Body: CreateAgentTaskInput }>('/api/agents/tasks', async (request, reply) => {
     const task = await agents.createTask(request.body);
     return reply.code(201).send(task);
   });
@@ -36,7 +37,9 @@ export async function registerAgentsRoutes(app: FastifyInstance, agents: AgentsS
     };
 
     manager.attach(projectName, send);
-    void agents.snapshot(projectName).then((snapshot) => send({ type: 'snapshot', ...snapshot }));
+    void agents.snapshot(projectName)
+      .then((snapshot) => send({ type: 'snapshot', ...snapshot }))
+      .catch(() => socket.close(1008, 'Project is unavailable'));
     socket.on('close', () => manager.detach(send));
   });
 }

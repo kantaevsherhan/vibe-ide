@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import { agentsApi } from '../services/agents.api';
 import { AgentsSocket } from '../services/agents.ws';
-import type { AgentListItem, AgentSession, AgentTask, AgentWsMessage } from '../types/agents';
+import type { AgentListItem, AgentSession, AgentTask, AgentWsMessage, TaskOptions } from '../types/agents';
 
 const socket = new AgentsSocket();
 
@@ -14,6 +14,7 @@ export const useAgentsStore = defineStore('agents', () => {
   const logs = ref<Record<string, string>>({});
   const selectedTaskId = ref<string | null>(null);
   const loading = ref(false);
+  const sending = ref(false);
   const error = ref<string | null>(null);
 
   const runningAgentsCount = computed(() => sessions.value.filter((session) => session.status === 'running').length);
@@ -67,26 +68,44 @@ export const useAgentsStore = defineStore('agents', () => {
     }
   }
 
-  async function sendTask(agentId: string, prompt: string) {
-    if (!projectName.value || !prompt.trim()) return;
+  async function sendTask(agentId: string, prompt: string, options?: TaskOptions) {
+    const project = projectName.value;
+    if (!project || !prompt.trim() || sending.value) return false;
+    sending.value = true;
     error.value = null;
     try {
-      const response = await agentsApi.createTask(projectName.value, agentId, prompt.trim());
-      upsertTask(response.task);
-      selectedTaskId.value = response.task.id;
+      const response = await agentsApi.createTask(project, agentId, prompt.trim(), options);
+      if (projectName.value === project) {
+        upsertTask(response.task);
+        selectedTaskId.value = response.task.id;
+      }
+      return true;
     } catch (caught) {
       error.value = caught instanceof Error ? caught.message : 'Failed to create agent task.';
+      return false;
+    } finally {
+      sending.value = false;
     }
   }
 
   async function cancel(taskId: string) {
-    const response = await agentsApi.cancel(taskId);
-    upsertTask(response.task);
+    error.value = null;
+    try {
+      const response = await agentsApi.cancel(taskId);
+      upsertTask(response.task);
+    } catch (caught) {
+      error.value = caught instanceof Error ? caught.message : 'Failed to cancel the task.';
+    }
   }
 
   async function retry(taskId: string) {
-    const response = await agentsApi.retry(taskId);
-    upsertTask(response.task);
+    error.value = null;
+    try {
+      const response = await agentsApi.retry(taskId);
+      upsertTask(response.task);
+    } catch (caught) {
+      error.value = caught instanceof Error ? caught.message : 'Failed to retry the task.';
+    }
   }
 
   async function move(taskId: string, direction: 'up' | 'down') {
@@ -95,9 +114,15 @@ export const useAgentsStore = defineStore('agents', () => {
   }
 
   async function openLog(taskId: string) {
+    const project = projectName.value;
     selectedTaskId.value = taskId;
-    const response = await agentsApi.log(taskId);
-    logs.value[taskId] = response.log;
+    const previousLog = logs.value[taskId];
+    try {
+      const response = await agentsApi.log(taskId);
+      if (projectName.value === project && logs.value[taskId] === previousLog) logs.value[taskId] = response.log;
+    } catch (caught) {
+      if (projectName.value === project) error.value = caught instanceof Error ? caught.message : 'Failed to load the task log.';
+    }
   }
 
   function clearSelectedLog() {
@@ -123,6 +148,8 @@ export const useAgentsStore = defineStore('agents', () => {
 
   function upsertTask(task: AgentTask | undefined) {
     if (!task) return;
+    const existing = tasks.value.find((item) => item.id === task.id);
+    if (existing && existing.updatedAt > task.updatedAt) return;
     tasks.value = [...tasks.value.filter((item) => item.id !== task.id), task].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   }
 
@@ -141,6 +168,7 @@ export const useAgentsStore = defineStore('agents', () => {
     runningAgentsCount,
     activeTasksCount,
     loading,
+    sending,
     error,
     setProject,
     refresh,

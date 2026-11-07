@@ -6,6 +6,8 @@
       "command": "claude",
       "args": [
         "-p",
+        "--permission-mode",
+        "acceptEdits",
         "{prompt}"
       ],
       "inputMode": "argument",
@@ -25,27 +27,6 @@
       ],
       "inputMode": "argument",
       "enabled": true
-    },
-    {
-      "id": "gemini",
-      "name": "Gemini",
-      "command": "gemini",
-      "args": [
-        "-p",
-        "{prompt}"
-      ],
-      "inputMode": "argument",
-      "enabled": true
-    },
-    {
-      "id": "custom",
-      "name": "Custom Agent",
-      "command": "npx",
-      "args": [
-        "my-agent"
-      ],
-      "inputMode": "stdin",
-      "enabled": false
     }
   ],
   "notifications": {

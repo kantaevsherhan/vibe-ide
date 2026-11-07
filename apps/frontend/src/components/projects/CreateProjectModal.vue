@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue';
-import { GitBranch, Mic, PackagePlus, Sparkles } from '@lucide/vue';
+import { GitBranch, PackagePlus, Sparkles } from '@lucide/vue';
 import BaseModal from '../ui/BaseModal.vue';
-import { useVoiceInput } from '../../composables/useVoiceInput';
 import { useAgentsStore } from '../../stores/agents.store';
 import type { CreateProjectInput } from '../../services/projects.api';
 
@@ -22,7 +21,6 @@ type ProjectSource = 'blank' | 'git' | 'prompt';
 const agents = useAgentsStore();
 const source = ref<ProjectSource>('blank');
 const touchedFolder = ref(false);
-const voice = useVoiceInput();
 const form = reactive({
   name: '',
   folderName: '',
@@ -84,18 +82,11 @@ function reset() {
   form.repositoryUrl = '';
   form.prompt = '';
   form.agentId = '';
-  voice.stop();
 }
 
 async function loadAgents() {
   await agents.loadAgents();
   form.agentId = form.agentId || availableAgents.value[0]?.id || '';
-}
-
-async function togglePromptDictation() {
-  await voice.toggle((text) => {
-    form.prompt = form.prompt ? `${form.prompt.trimEnd()}\n${text}` : text;
-  });
 }
 
 function submit() {
@@ -114,9 +105,9 @@ function submit() {
 </script>
 
 <template>
-  <BaseModal v-if="open" title="Create Project" panel-class="max-w-4xl" @close="$emit('close')">
+  <BaseModal v-if="open" title="Create Project" panel-class="max-w-4xl max-h-[calc(100dvh-2rem)] overflow-y-auto" @close="$emit('close')">
     <form class="space-y-4 px-4 py-4" @submit.prevent="submit">
-      <div class="grid grid-cols-3 gap-2">
+      <div class="grid gap-2 sm:grid-cols-3">
         <button
           type="button"
           class="flex items-center gap-2 border px-3 py-2 text-left text-sm"
@@ -208,26 +199,13 @@ function submit() {
         </label>
 
         <label class="block">
-          <span class="mb-1 flex items-center justify-between gap-2 text-xs uppercase tracking-wide text-ide-muted">
-            <span>Project prompt</span>
-            <button
-              type="button"
-              class="inline-flex h-7 items-center gap-1 border border-ide-border bg-ide-panel px-2 normal-case tracking-normal text-ide-text hover:border-ide-accent disabled:cursor-not-allowed disabled:opacity-50"
-              :class="{ 'text-red-300': voice.isRecording.value }"
-              :disabled="voice.isTranscribing.value"
-              @click="togglePromptDictation"
-            >
-              <Mic :size="13" />
-              {{ voice.isRecording.value ? 'Stop recording' : voice.isTranscribing.value ? 'Transcribing...' : 'Dictate prompt' }}
-            </button>
-          </span>
+          <span class="mb-1 block text-xs uppercase tracking-wide text-ide-muted">Project prompt</span>
           <textarea
             v-model="form.prompt"
             class="min-h-32 w-full resize-none border border-ide-border bg-ide-panel px-3 py-2 outline-none focus:border-ide-accent"
             placeholder="Describe what the selected agent should build in this project..."
             required
           />
-          <p v-if="voice.error.value" class="mt-1 text-xs text-red-300">{{ voice.error.value }}</p>
         </label>
       </div>
 

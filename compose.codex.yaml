@@ -1,0 +1,4 @@
+services:
+  vibe-ide:
+    security_opt:
+      - seccomp=./docker/seccomp-codex.json

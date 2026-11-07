@@ -36,14 +36,24 @@ const filteredProjects = computed(() => {
 const hasLocalSourceChanges = computed(() => (system.error ?? system.message).includes('Local source changes detected'));
 
 async function createProject(input: CreateProjectInput) {
+  if (creatingProject.value) return;
   creatingProject.value = true;
   try {
     const project = await projects.createProject(input);
     if (input.source === 'prompt' && input.prompt?.trim() && input.agentId) {
-      await agentsApi.createTask(project.folderName, input.agentId, input.prompt.trim());
+      try {
+        await agentsApi.createTask(project.folderName, input.agentId, input.prompt.trim());
+      } catch (caught) {
+        creating.value = false;
+        const message = caught instanceof Error ? caught.message : 'Request failed.';
+        projects.error = `Created ${project.name}. The agent could not start. Open the project and try again. ${message}`;
+        return;
+      }
     }
     creating.value = false;
     await projects.openProject(project.folderName);
+  } catch (caught) {
+    projects.error = caught instanceof Error ? caught.message : 'Failed to open the project.';
   } finally {
     creatingProject.value = false;
   }
@@ -68,7 +78,7 @@ async function confirmDeleteProject(folderName: string) {
           <h1 class="text-xl font-semibold">VibeIDE Projects</h1>
           <p class="text-sm text-ide-muted">Persistent AI workspaces on your server.</p>
         </div>
-        <div class="flex gap-2">
+        <div class="flex flex-wrap gap-2">
           <button class="desktop-action-button h-9 gap-2 px-3" :disabled="system.loading" @click="system.checkUpdate()">
             <DownloadCloud :size="16" />
             {{ system.buttonLabel }}
@@ -126,7 +136,7 @@ async function confirmDeleteProject(folderName: string) {
         />
       </label>
 
-      <p v-if="projects.error" class="border border-red-500/40 bg-red-500/10 p-3 text-red-200">{{ projects.error }}</p>
+      <p v-if="projects.error" role="alert" class="border border-red-500/40 bg-red-500/10 p-3 text-red-200">{{ projects.error }}</p>
 
       <section v-if="!projects.loading && projects.projects.length === 0" class="grid min-h-72 place-items-center border border-dashed border-ide-border bg-ide-sidebar/60 text-center">
         <div>
